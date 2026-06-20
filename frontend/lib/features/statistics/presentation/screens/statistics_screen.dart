@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/amount_display.dart';
@@ -8,20 +9,23 @@ import '../../../../shared/widgets/selection_chip.dart';
 import '../../../../shared/widgets/charts/category_donut_chart.dart';
 import '../../../../shared/widgets/charts/monthly_bar_chart.dart';
 import '../../../../shared/widgets/charts/spending_line_chart.dart';
+import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../budget/domain/budget_models.dart';
 
-class StatisticsScreen extends StatefulWidget {
+class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
 
   @override
-  State<StatisticsScreen> createState() => _StatisticsScreenState();
+  ConsumerState<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _StatisticsScreenState extends State<StatisticsScreen> {
+class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   Set<String> _period = {'이번 달'};
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final budgetAsync = ref.watch(availableBudgetProvider);
 
     return SafeArea(
       child: CustomScrollView(
@@ -53,29 +57,33 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Row(
-                children: [
-                  Expanded(child: _SummaryCard(
-                    label: '총 수입',
-                    amount: 4350000,
-                    color: AppColors.income,
-                    icon: Icons.arrow_circle_up_rounded,
-                  )),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: _SummaryCard(
-                    label: '총 지출',
-                    amount: -1250000,
-                    color: AppColors.expense,
-                    icon: Icons.arrow_circle_down_rounded,
-                  )),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: _SummaryCard(
-                    label: '순수익',
-                    amount: 3100000,
-                    color: AppColors.primary,
-                    icon: Icons.savings_rounded,
-                  )),
-                ],
+              child: budgetAsync.when(
+                data: (b) => Row(
+                  children: [
+                    Expanded(child: _SummaryCard(
+                      label: '총 수입',
+                      amount: (b.salary + b.extraIncome).round(),
+                      color: AppColors.income,
+                      icon: Icons.arrow_circle_up_rounded,
+                    )),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: _SummaryCard(
+                      label: '총 지출',
+                      amount: -b.totalSpent.round(),
+                      color: AppColors.expense,
+                      icon: Icons.arrow_circle_down_rounded,
+                    )),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: _SummaryCard(
+                      label: '순수익',
+                      amount: (b.salary + b.extraIncome - b.totalSpent).round(),
+                      color: AppColors.primary,
+                      icon: Icons.savings_rounded,
+                    )),
+                  ],
+                ),
+                loading: () => const SizedBox(height: 80),
+                error: (_, __) => const SizedBox.shrink(),
               ).animate(delay: 100.ms).fadeIn(),
             ),
           ),
@@ -92,15 +100,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   children: [
                     Text('카테고리별 지출', style: tt.titleLarge),
                     const SizedBox(height: AppSpacing.lg),
-                    const CategoryDonutChart(
-                      centerLabel: '이번 달 지출',
-                      items: [
-                        CategoryData(label: '식비', amount: 420000, color: Color(0xFF5B8DEF)),
-                        CategoryData(label: '교통', amount: 85000, color: Color(0xFF7C6FF0)),
-                        CategoryData(label: '쇼핑', amount: 230000, color: Color(0xFFFF6B6B)),
-                        CategoryData(label: '문화', amount: 120000, color: Color(0xFF34C77B)),
-                        CategoryData(label: '기타', amount: 65000, color: Color(0xFFB39DFF)),
-                      ],
+                    budgetAsync.when(
+                      data: (b) => CategoryDonutChart(
+                        centerLabel: '이번 달 지출',
+                        items: _buildDonutItems(b.spendSummary),
+                      ),
+                      loading: () => const SizedBox(height: 200),
+                      error: (_, __) => Center(
+                        child: Text('데이터 없음',
+                            style: tt.bodySmall?.copyWith(
+                                color: AppColors.textSecondary)),
+                      ),
                     ),
                   ],
                 ),
@@ -110,7 +120,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
 
-          // ── 월별 수입/지출 ─────────────────────────────────
+          // ── 월별 수입/지출 (mock - 과거 데이터 API 없음) ──
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -138,7 +148,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
 
-          // ── 일별 지출 추이 ─────────────────────────────────
+          // ── 일별 누적 지출 추이 ─────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -146,27 +156,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [
-                      Text('지출 추이', style: tt.titleLarge),
-                      const Spacer(),
-                      Text('예산 300만원', style: tt.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      )),
-                    ]),
+                    budgetAsync.when(
+                      data: (b) => Row(children: [
+                        Text('지출 추이', style: tt.titleLarge),
+                        const Spacer(),
+                        Text('예산 ${_fmtWon((b.salary + b.extraIncome).round())}',
+                            style: tt.labelSmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            )),
+                      ]),
+                      loading: () => Text('지출 추이', style: tt.titleLarge),
+                      error: (_, __) => Text('지출 추이', style: tt.titleLarge),
+                    ),
                     const SizedBox(height: AppSpacing.lg),
-                    const SpendingLineChart(
-                      budgetLimit: 3000000,
-                      points: [
-                        SpendingPoint(day: 1, amount: 65000),
-                        SpendingPoint(day: 3, amount: 142000),
-                        SpendingPoint(day: 5, amount: 280000),
-                        SpendingPoint(day: 8, amount: 395000),
-                        SpendingPoint(day: 10, amount: 520000),
-                        SpendingPoint(day: 13, amount: 710000),
-                        SpendingPoint(day: 15, amount: 880000),
-                        SpendingPoint(day: 18, amount: 1050000),
-                        SpendingPoint(day: 20, amount: 1250000),
-                      ],
+                    budgetAsync.when(
+                      data: (b) => SpendingLineChart(
+                        budgetLimit: (b.salary + b.extraIncome).round(),
+                        points: _buildSpendingPoints(b.spendSummary),
+                      ),
+                      loading: () => const SizedBox(height: 160),
+                      error: (_, __) => const SizedBox(height: 160),
                     ),
                   ],
                 ),
@@ -178,6 +187,47 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ],
       ),
     );
+  }
+
+  static const _donutColors = [
+    Color(0xFF5B8DEF),
+    Color(0xFF7C6FF0),
+    Color(0xFFFF6B6B),
+    Color(0xFF34C77B),
+    Color(0xFFB39DFF),
+    Color(0xFFFF9F43),
+    Color(0xFF54A0FF),
+    Color(0xFF8D6E63),
+  ];
+
+  List<CategoryData> _buildDonutItems(SpendSummary summary) {
+    final expenseItems = summary.byCategory
+        .where((c) => c.total < 0)
+        .toList()
+      ..sort((a, b) => a.total.compareTo(b.total));
+
+    return expenseItems.asMap().entries.map((e) {
+      final color = _donutColors[e.key % _donutColors.length];
+      return CategoryData(
+        label: e.value.categoryName,
+        amount: e.value.total.abs().round(),
+        color: color,
+      );
+    }).toList();
+  }
+
+  List<SpendingPoint> _buildSpendingPoints(SpendSummary summary) {
+    // 현재는 사이클 합계만 있으므로 단순 표시
+    final total = summary.totalSpend.abs();
+    if (total == 0) return const [];
+    return [SpendingPoint(day: 20, amount: total.round())];
+  }
+
+  String _fmtWon(int amount) {
+    if (amount >= 10000) {
+      return '${(amount / 10000).toStringAsFixed(0)}만원';
+    }
+    return '$amount원';
   }
 }
 

@@ -28,7 +28,8 @@ class MonthlyBarChart extends StatelessWidget {
       0,
       (prev, e) => [prev, e.income, e.expense].reduce((a, b) => a > b ? a : b),
     );
-    return (m * 1.25).ceilToDouble();
+    final raw = (m * 1.25).ceilToDouble();
+    return raw > 0 ? raw : 10000;
   }
 
   @override

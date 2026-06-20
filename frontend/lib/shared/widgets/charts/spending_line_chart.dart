@@ -29,7 +29,8 @@ class SpendingLineChart extends StatelessWidget {
     final cap = budgetLimit != null && budgetLimit! > dataMax
         ? budgetLimit!
         : dataMax;
-    return (cap * 1.2).ceilToDouble();
+    final raw = (cap * 1.2).ceilToDouble();
+    return raw > 0 ? raw : 10000;
   }
 
   @override
@@ -179,7 +180,8 @@ class CompareLineChart extends StatelessWidget {
         if (p.amount > m) m = p.amount.toDouble();
       }
     }
-    return m * 1.2;
+    final raw = m * 1.2;
+    return raw > 0 ? raw : 10000;
   }
 
   @override
