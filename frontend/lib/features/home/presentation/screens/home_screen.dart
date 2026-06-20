@@ -8,10 +8,12 @@ import '../../../../features/auth/domain/auth_model.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/budget/domain/budget_models.dart';
 import '../../../../features/budget/presentation/providers/budget_provider.dart';
+import '../../../../features/settings/presentation/providers/settings_provider.dart';
 import '../../../../features/transactions/presentation/providers/transaction_provider.dart';
 import '../../../../shared/widgets/amount_display.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/moun_calendar.dart';
+import '../../../../shared/widgets/category_selector.dart' show CategoryItem;
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -23,6 +25,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   DateTime? _selectedDay;
+  late DateTime _viewMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _viewMonth = DateTime(now.year, now.month);
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +46,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final cycleAsync = ref.watch(currentCycleProvider);
     final budgetAsync = ref.watch(availableBudgetProvider);
     final txByDayAsync = ref.watch(transactionsByDateProvider);
+    final fixedIncomesAsync = ref.watch(fixedIncomesProvider);
+    final fixedExpensesAsync = ref.watch(fixedExpensesProvider);
 
     return SafeArea(
       child: CustomScrollView(
@@ -110,15 +125,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: GlassCard(
                         padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.arrow_circle_up_rounded,
-                                color: AppColors.income, size: 16),
-                            const SizedBox(width: 6),
-                            Text('수입', style: tt.labelSmall),
-                            const Spacer(),
+                            Row(
+                              children: [
+                                const Icon(Icons.arrow_circle_up_rounded,
+                                    color: AppColors.income, size: 14),
+                                const SizedBox(width: 4),
+                                Text('수입', style: tt.labelSmall),
+                                if (budget.hasPendingIncome) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.income.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '예정',
+                                      style: tt.labelSmall?.copyWith(
+                                        color: AppColors.income,
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
                             AmountDisplay(
-                              amount: (budget.totalIncome).round(),
+                              amount: budget.expectedIncome.round(),
                               size: AmountSize.small,
                             ),
                           ],
@@ -130,13 +168,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: GlassCard(
                         padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.repeat_rounded,
-                                color: AppColors.expensePending, size: 16),
-                            const SizedBox(width: 6),
-                            Text('고정지출', style: tt.labelSmall),
-                            const Spacer(),
+                            Row(
+                              children: [
+                                const Icon(Icons.repeat_rounded,
+                                    color: AppColors.expensePending, size: 14),
+                                const SizedBox(width: 4),
+                                Text('고정지출', style: tt.labelSmall),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
                             AmountDisplay(
                               amount: -budget.fixedExpense.round(),
                               size: AmountSize.small,
@@ -163,18 +206,105 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             sliver: SliverToBoxAdapter(
               child: txByDayAsync.when(
                 data: (txByDay) {
-                  final calendarData = txByDay.map((day, items) {
+                  final fixedIncomes = fixedIncomesAsync.value ?? [];
+                  final fixedExpenses = fixedExpensesAsync.value ?? [];
+                  final now = DateTime.now();
+                  final vm = _viewMonth; // 현재 보여지는 달
+                  final isFutureMonth = vm.year > now.year ||
+                      (vm.year == now.year && vm.month > now.month);
+                  final calendarData = <DateTime, DayData>{};
+
+                  // 실제 거래 데이터 (현재 달에만 존재)
+                  txByDay.forEach((day, items) {
                     final income = items
                         .where((t) => t.isIncome)
                         .fold(0, (s, t) => s + t.amount);
                     final expense = items
                         .where((t) => !t.isIncome)
                         .fold(0, (s, t) => s + t.amount.abs());
-                    return MapEntry(day, DayData(income: income, expense: expense));
+                    calendarData[day] = DayData(income: income, expense: expense);
                   });
-                  final selectedTxns = _selectedDay != null
-                      ? (txByDay[_selectedDay] ?? [])
-                      : null;
+
+                  // 고정 수입: 보여지는 달의 scheduled_day에 표시
+                  for (final fi in fixedIncomes) {
+                    if (fi.scheduledDay == null) continue;
+                    final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
+                    // 미래 달이거나, 같은 달인데 오늘 이후면 예정
+                    final isPending = isFutureMonth || fi.scheduledDay! > now.day;
+                    final amt = fi.expectedAmount.round();
+                    final prev = calendarData[day] ?? const DayData();
+                    calendarData[day] = DayData(
+                      income: prev.income + amt,
+                      expense: prev.expense,
+                      hasPending: prev.hasPending || isPending,
+                    );
+                  }
+
+                  // 고정 지출: 보여지는 달의 billingDay에 표시
+                  for (final fe in fixedExpenses) {
+                    if (!fe.isActive) continue;
+                    final day = DateTime(vm.year, vm.month, fe.billingDay);
+                    final isPending = isFutureMonth || fe.billingDay > now.day;
+                    final amt = fe.amount.round();
+                    final prev = calendarData[day] ?? const DayData();
+                    calendarData[day] = DayData(
+                      income: prev.income,
+                      expense: prev.expense + amt,
+                      hasPending: prev.hasPending || isPending,
+                    );
+                  }
+
+                  // 선택한 날의 상세 항목
+                  List<TransactionItem>? selectedItems;
+                  if (_selectedDay != null) {
+                    final real = txByDay[_selectedDay] ?? [];
+                    final pseudo = <TransactionItem>[];
+
+                    for (final fi in fixedIncomes) {
+                      if (fi.scheduledDay == null) continue;
+                      final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
+                      if (_isSameDay(day, _selectedDay!)) {
+                        final isPending = isFutureMonth || fi.scheduledDay! > now.day;
+                        pseudo.add(TransactionItem(
+                          id: -fi.id,
+                          name: fi.name,
+                          amount: fi.expectedAmount.round(),
+                          date: day,
+                          category: const CategoryItem(
+                            id: 0,
+                            label: '고정 수입',
+                            icon: Icons.trending_up_rounded,
+                            color: AppColors.income,
+                          ),
+                          isPending: isPending,
+                        ));
+                      }
+                    }
+
+                    for (final fe in fixedExpenses) {
+                      if (!fe.isActive) continue;
+                      final day = DateTime(vm.year, vm.month, fe.billingDay);
+                      if (_isSameDay(day, _selectedDay!)) {
+                        final isPending = isFutureMonth || fe.billingDay > now.day;
+                        pseudo.add(TransactionItem(
+                          id: -fe.id - 100000,
+                          name: fe.name,
+                          amount: -fe.amount.round(),
+                          date: day,
+                          category: const CategoryItem(
+                            id: 0,
+                            label: '고정 지출',
+                            icon: Icons.repeat_rounded,
+                            color: AppColors.expensePending,
+                          ),
+                          isPending: isPending,
+                        ));
+                      }
+                    }
+
+                    selectedItems = [...real, ...pseudo];
+                  }
+
                   return Column(
                     children: [
                       GlassCard(
@@ -187,16 +317,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               _selectedDay = _selectedDay == key ? null : key;
                             });
                           },
-                          onMonthChanged: (_) {
-                            setState(() => _selectedDay = null);
+                          onMonthChanged: (month) {
+                            setState(() {
+                              _viewMonth = DateTime(month.year, month.month);
+                              _selectedDay = null;
+                            });
                           },
                         ),
                       ).animate(delay: 250.ms).fadeIn(),
-                      if (selectedTxns != null) ...[
+                      if (selectedItems != null) ...[
                         const SizedBox(height: AppSpacing.md),
                         _DayDetail(
                           day: _selectedDay!,
-                          transactions: selectedTxns,
+                          transactions: selectedItems,
                         ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.08, end: 0),
                       ],
                     ],
@@ -267,7 +400,7 @@ class _BudgetCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _BudgetProgressBar(
             spent: budget.totalSpent.round(),
-            total: (budget.totalIncome).round(),
+            total: budget.expectedIncome.round(),
           ),
         ],
       ),
@@ -452,10 +585,38 @@ class _TransactionRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name,
-                    style: tt.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w500)),
-                Text(item.category.label, style: tt.labelSmall),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(item.name,
+                          style: tt.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (item.isPending) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.expensePending.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text('예정',
+                            style: tt.labelSmall?.copyWith(
+                              color: AppColors.expensePending,
+                              fontSize: 9,
+                            )),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(item.category.label,
+                    style: tt.labelSmall?.copyWith(
+                      color: item.isPending
+                          ? AppColors.textSecondary.withValues(alpha: 0.6)
+                          : null,
+                    )),
               ],
             ),
           ),
@@ -464,7 +625,12 @@ class _TransactionRow extends StatelessWidget {
                 ? '+${_amtFmt.format(item.amount)}원'
                 : '-${_amtFmt.format(item.amount.abs())}원',
             style: tt.bodyMedium?.copyWith(
-              color: item.isIncome ? AppColors.income : AppColors.expense,
+              color: item.isPending
+                  ? (item.isIncome ? AppColors.income : AppColors.expense)
+                      .withValues(alpha: 0.5)
+                  : item.isIncome
+                      ? AppColors.income
+                      : AppColors.expense,
               fontWeight: FontWeight.w600,
             ),
           ),

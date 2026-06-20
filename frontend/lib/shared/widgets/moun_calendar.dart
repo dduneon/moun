@@ -60,9 +60,10 @@ class _MounCalendarState extends State<MounCalendar> {
 
   void _nextMonth() {
     final next = DateTime(_month.year, _month.month + 1);
-    if (next.isAfter(DateTime.now())) return; // 미래 월 막기
+    final limit = DateTime(DateTime.now().year, DateTime.now().month + 1);
+    if (next.isAfter(limit)) return; // 다음 달까지만 허용
     setState(() => _month = next);
-    widget.onMonthChanged?.call(_month);
+    widget.onMonthChanged?.call(next);
   }
 
   DayData _dataFor(DateTime day) =>
@@ -73,8 +74,9 @@ class _MounCalendarState extends State<MounCalendar> {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final days = _buildDays();
-    final isCurrentMonth = _month.year == DateTime.now().year &&
-        _month.month == DateTime.now().month;
+    final now = DateTime.now();
+    final limit = DateTime(now.year, now.month + 1);
+    final isAtLimit = _month.year == limit.year && _month.month == limit.month;
 
     return Column(
       children: [
@@ -93,10 +95,10 @@ class _MounCalendarState extends State<MounCalendar> {
             ),
             IconButton(
               icon: Icon(Icons.chevron_right_rounded,
-                  color: isCurrentMonth
+                  color: isAtLimit
                       ? AppColors.divider.withValues(alpha: 8.0)
                       : AppColors.textPrimary),
-              onPressed: isCurrentMonth ? null : _nextMonth,
+              onPressed: isAtLimit ? null : _nextMonth,
             ),
           ],
         ),
