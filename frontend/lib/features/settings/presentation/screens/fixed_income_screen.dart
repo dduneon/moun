@@ -37,7 +37,7 @@ class FixedIncomeScreen extends ConsumerWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.divider.withValues(alpha: 0.5),
+                          color: AppColors.divider,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.arrow_back_rounded,
