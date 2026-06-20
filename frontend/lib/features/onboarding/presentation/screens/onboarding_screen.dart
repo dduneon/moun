@@ -535,6 +535,12 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   int _amount = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     super.dispose();
@@ -543,31 +549,21 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final mq = MediaQuery.of(context);
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
 
     return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       padding: EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
-          AppSpacing.lg + mq.viewInsets.bottom),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+          AppSpacing.xl + bottomPadding),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           Text('고정 수입 추가', style: tt.titleLarge),
           const SizedBox(height: AppSpacing.lg),
           AppTextField(
@@ -579,7 +575,7 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
           const SizedBox(height: AppSpacing.md),
           AmountTextField(
             label: '예상 금액',
-            onChanged: (v) => _amount = v,
+            onChanged: (v) => setState(() => _amount = v),
           ),
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton(
@@ -597,8 +593,7 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
               backgroundColor: AppColors.income,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding:
-                  const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               shape: RoundedRectangleBorder(
                   borderRadius: AppRadius.buttonBorderRadius),
             ),
@@ -626,6 +621,12 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
   String _method = 'account';
 
   @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     super.dispose();
@@ -640,31 +641,21 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final mq = MediaQuery.of(context);
+    final bottomPadding = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
 
     return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       padding: EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
-          AppSpacing.lg + mq.viewInsets.bottom),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+          AppSpacing.xl + bottomPadding),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           Text('고정 지출 추가', style: tt.titleLarge),
           const SizedBox(height: AppSpacing.lg),
 

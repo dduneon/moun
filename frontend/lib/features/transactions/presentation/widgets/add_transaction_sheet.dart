@@ -1,10 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
 import '../../../../shared/widgets/selection_chip.dart';
@@ -86,18 +86,12 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   }
 
   void _showErrorDialog(String msg) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('오류'),
-        content: Text(msg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+    AppConfirmDialog.show(
+      context,
+      title: '오류',
+      message: msg,
+      confirmLabel: '확인',
+      cancelLabel: '',
     );
   }
 
@@ -107,161 +101,115 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
     final accent = _accentColor;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Stack(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      // 키보드 + 버튼이 항상 보이도록 최대 높이 제한 후 스크롤
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Positioned.fill(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                color: Color.alphaBlend(
-                  accent.withValues(alpha: 0.07),
-                  AppColors.surfaceGlass,
+            // 핸들
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: Color.alphaBlend(
-                      accent.withValues(alpha: 0.2),
-                      AppColors.surfaceGlassBorder,
-                    ),
-                    width: 1,
-                  ),
-                  left: const BorderSide(color: AppColors.surfaceGlassBorder, width: 1),
-                  right: const BorderSide(color: AppColors.surfaceGlassBorder, width: 1),
-                ),
+
+            Text('거래 추가', style: tt.headlineSmall),
+            const SizedBox(height: AppSpacing.lg),
+
+            TransactionTypeToggle(
+              isExpense: _isExpense,
+              onChanged: (v) => setState(() {
+                _isExpense = v;
+                _category = null;
+              }),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            AmountTextField(
+              label: '금액',
+              onChanged: (v) => _amount = v,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            Text('카테고리',
+                style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: AppSpacing.sm),
+            ref.watch(categoryItemsProvider).when(
+              data: (all) {
+                final items = _filterCategories(all);
+                if (items.isEmpty) {
+                  return Text('카테고리를 불러오는 중...',
+                      style: tt.bodyMedium
+                          ?.copyWith(color: AppColors.textSecondary));
+                }
+                return CategoryGrid(
+                  items: items,
+                  selectedId: _category?.id,
+                  onSelected: (c) => setState(() => _category = c),
+                );
+              },
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: Center(child: CircularProgressIndicator()),
               ),
-              // 키보드 + 버튼이 항상 보이도록 최대 높이 제한 후 스크롤
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.92,
+              error: (_, __) => CategoryGrid(
+                items: _isExpense
+                    ? defaultExpenseCategories
+                    : defaultIncomeCategories,
+                selectedId: _category?.id,
+                onSelected: (c) => setState(() => _category = c),
               ),
-              padding: EdgeInsets.only(bottom: bottomPadding),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // 핸들
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: AppColors.divider,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
 
-                    Text('거래 추가', style: tt.headlineSmall),
-                    const SizedBox(height: AppSpacing.lg),
+            AppTextField(
+              controller: _nameCtrl,
+              label: '거래명 (선택)',
+              hint: '예: 스타벅스',
+            ),
+            const SizedBox(height: AppSpacing.md),
 
-                    // 수입 / 지출 탭
-                    TransactionTypeToggle(
-                      isExpense: _isExpense,
-                      onChanged: (v) => setState(() {
-                        _isExpense = v;
-                        _category = null;
-                      }),
-                    ),
+            _DateField(
+              date: _date,
+              expanded: _showDatePicker,
+              accentColor: accent,
+              onToggle: () =>
+                  setState(() => _showDatePicker = !_showDatePicker),
+              onDateChanged: (d) => setState(() => _date = d),
+            ),
+            const SizedBox(height: AppSpacing.md),
 
-                    const SizedBox(height: AppSpacing.lg),
+            AppTextField(
+              controller: _memoCtrl,
+              label: '메모 (선택)',
+              maxLines: 2,
+            ),
+            const SizedBox(height: AppSpacing.xl),
 
-                    // 금액
-                    AmountTextField(
-                      label: '금액',
-                      onChanged: (v) => _amount = v,
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // 카테고리 인라인 그리드
-                    Text(
-                      '카테고리',
-                      style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    ref.watch(categoryItemsProvider).when(
-                      data: (all) {
-                        final items = _filterCategories(all);
-                        if (items.isEmpty) {
-                          return Text(
-                            '카테고리를 불러오는 중...',
-                            style: tt.bodyMedium
-                                ?.copyWith(color: AppColors.textSecondary),
-                          );
-                        }
-                        return CategoryGrid(
-                          items: items,
-                          selectedId: _category?.id,
-                          onSelected: (c) => setState(() => _category = c),
-                        );
-                      },
-                      loading: () => const Padding(
-                        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (_, __) => CategoryGrid(
-                        items: _isExpense
-                            ? defaultExpenseCategories
-                            : defaultIncomeCategories,
-                        selectedId: _category?.id,
-                        onSelected: (c) => setState(() => _category = c),
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // 거래명 (선택)
-                    AppTextField(
-                      controller: _nameCtrl,
-                      label: '거래명 (선택)',
-                      hint: '예: 스타벅스',
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 날짜 선택
-                    _DateField(
-                      date: _date,
-                      expanded: _showDatePicker,
-                      accentColor: accent,
-                      onToggle: () =>
-                          setState(() => _showDatePicker = !_showDatePicker),
-                      onDateChanged: (d) => setState(() => _date = d),
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // 메모 (선택)
-                    AppTextField(
-                      controller: _memoCtrl,
-                      label: '메모 (선택)',
-                      maxLines: 2,
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // 저장 버튼
-                    _AccentButton(
-                      label: '저장',
-                      loading: _loading,
-                      color: accent,
-                      onPressed: _submit,
-                    ),
-                  ],
-                ),
-              ),
+            _AccentButton(
+              label: '저장',
+              loading: _loading,
+              color: accent,
+              onPressed: _submit,
             ),
           ],
         ),
