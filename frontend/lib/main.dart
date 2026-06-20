@@ -10,7 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'features/_design_showcase/showcase_screen.dart';
 
 // Set to false to use the real auth router
-const _showDesignShowcase = true;
+const _showDesignShowcase = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -5,16 +5,17 @@ import '../../features/auth/domain/auth_model.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
-import '../../features/auth/presentation/screens/dashboard_screen.dart';
+import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/transactions/presentation/screens/transactions_screen.dart';
+import '../../features/statistics/presentation/screens/statistics_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/shell/main_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // 앱 시작 시 한 번만 세션 복원
   Future.microtask(() => ref.read(authProvider.notifier).restoreSession());
 
-  final authNotifier = ref.read(authProvider.notifier);
-
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/home',
     refreshListenable: _AuthStateListenable(ref),
     redirect: (context, state) {
       final authState = ref.read(authProvider);
@@ -24,25 +25,38 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (isAuthenticating) return null;
 
-      final onAuthScreen = location == '/login' || location == '/register';
+      final onAuthScreen =
+          location == '/login' || location == '/register';
 
       if (!isAuth && !onAuthScreen) return '/login';
-      if (isAuth && onAuthScreen) return '/dashboard';
+      if (isAuth && onAuthScreen) return '/home';
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-      GoRoute(
-        path: '/dashboard',
-        builder: (_, __) => const DashboardScreen(),
-        // 추후 중첩 라우트 추가 예정
+
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, shell) => MainShell(navigationShell: shell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/transactions', builder: (_, __) => const TransactionsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/statistics', builder: (_, __) => const StatisticsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+          ]),
+        ],
       ),
     ],
   );
 });
 
-/// GoRouter의 refreshListenable용 — authProvider 변화 시 라우터 재평가.
 class _AuthStateListenable extends ChangeNotifier {
   _AuthStateListenable(Ref ref) {
     ref.listen(authProvider, (_, __) => notifyListeners());
