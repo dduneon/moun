@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -12,20 +11,28 @@ import '../../../../features/budget/presentation/providers/budget_provider.dart'
 import '../../../../features/transactions/presentation/providers/transaction_provider.dart';
 import '../../../../shared/widgets/amount_display.dart';
 import '../../../../shared/widgets/glass_card.dart';
-import '../../../../shared/widgets/transaction_list.dart';
+import '../../../../shared/widgets/moun_calendar.dart';
+import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  DateTime? _selectedDay;
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final user = authState is AuthStateAuthenticated ? authState.user : null;
     final tt = Theme.of(context).textTheme;
 
     final cycleAsync = ref.watch(currentCycleProvider);
     final budgetAsync = ref.watch(availableBudgetProvider);
-    final txnsAsync = ref.watch(transactionItemsProvider);
+    final txByDayAsync = ref.watch(transactionsByDateProvider);
 
     return SafeArea(
       child: CustomScrollView(
@@ -54,7 +61,7 @@ class HomeScreen extends ConsumerWidget {
                         loading: () => Text('불러오는 중...',
                             style: tt.bodyMedium?.copyWith(
                                 color: AppColors.textSecondary)),
-                        error: (_, __) => const SizedBox.shrink(),
+                        error: (e, _) => const SizedBox.shrink(),
                       ),
                     ],
                   ),
@@ -69,7 +76,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
           // ── 메인 예산 카드 ──────────────────────────────────
           SliverToBoxAdapter(
@@ -90,7 +97,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
 
           // ── 수입 / 고정지출 카드 ────────────────────────────
           SliverToBoxAdapter(
@@ -101,17 +108,15 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: GlassCard(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        child: Row(
                           children: [
-                            Row(children: [
-                              const Icon(Icons.arrow_circle_up_rounded,
-                                  color: AppColors.income, size: 18),
-                              const SizedBox(width: 4),
-                              Text('수입', style: tt.labelSmall),
-                            ]),
-                            const SizedBox(height: AppSpacing.xs),
+                            const Icon(Icons.arrow_circle_up_rounded,
+                                color: AppColors.income, size: 16),
+                            const SizedBox(width: 6),
+                            Text('수입', style: tt.labelSmall),
+                            const Spacer(),
                             AmountDisplay(
                               amount: (budget.salary + budget.extraIncome).round(),
                               size: AmountSize.small,
@@ -123,17 +128,15 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: GlassCard(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        child: Row(
                           children: [
-                            Row(children: [
-                              const Icon(Icons.repeat_rounded,
-                                  color: AppColors.expensePending, size: 18),
-                              const SizedBox(width: 4),
-                              Text('고정지출', style: tt.labelSmall),
-                            ]),
-                            const SizedBox(height: AppSpacing.xs),
+                            const Icon(Icons.repeat_rounded,
+                                color: AppColors.expensePending, size: 16),
+                            const SizedBox(width: 6),
+                            Text('고정지출', style: tt.labelSmall),
+                            const Spacer(),
                             AmountDisplay(
                               amount: -budget.fixedExpense.round(),
                               size: AmountSize.small,
@@ -144,71 +147,68 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                loading: () => const SizedBox(height: 76),
-                error: (_, __) => const SizedBox.shrink(),
-              ).animate(delay: 200.ms).fadeIn(duration: 400.ms),
+                loading: () => const SizedBox(height: 44),
+                error: (e, _) => const SizedBox.shrink(),
+              ).animate(delay: 200.ms).fadeIn(),
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
-          // ── 최근 거래 헤더 ──────────────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Row(
-                children: [
-                  Text('최근 거래', style: tt.titleLarge),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => context.go('/transactions'),
-                    child: Text('전체보기',
-                        style: tt.labelMedium
-                            ?.copyWith(color: AppColors.primary)),
-                  ),
-                ],
-              ).animate(delay: 250.ms).fadeIn(),
-            ),
-          ),
-
-          // ── 최근 거래 목록 ──────────────────────────────────
+          // ── 달력 ──────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xxl,
+              AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xxl,
             ),
-            sliver: txnsAsync.when(
-              data: (items) {
-                final recent = items.take(5).toList();
-                if (recent.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                        child: Text('거래 내역이 없어요',
-                            style: tt.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary)),
-                      ),
-                    ),
+            sliver: SliverToBoxAdapter(
+              child: txByDayAsync.when(
+                data: (txByDay) {
+                  final calendarData = txByDay.map((day, items) {
+                    final income = items
+                        .where((t) => t.isIncome)
+                        .fold(0, (s, t) => s + t.amount);
+                    final expense = items
+                        .where((t) => !t.isIncome)
+                        .fold(0, (s, t) => s + t.amount.abs());
+                    return MapEntry(day, DayData(income: income, expense: expense));
+                  });
+                  final selectedTxns = _selectedDay != null
+                      ? (txByDay[_selectedDay] ?? [])
+                      : null;
+                  return Column(
+                    children: [
+                      GlassCard(
+                        child: MounCalendar(
+                          data: calendarData,
+                          selectedDay: _selectedDay,
+                          onDayTap: (day) {
+                            final key = DateTime(day.year, day.month, day.day);
+                            setState(() {
+                              _selectedDay = _selectedDay == key ? null : key;
+                            });
+                          },
+                          onMonthChanged: (_) {
+                            setState(() => _selectedDay = null);
+                          },
+                        ),
+                      ).animate(delay: 250.ms).fadeIn(),
+                      if (selectedTxns != null) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        _DayDetail(
+                          day: _selectedDay!,
+                          transactions: selectedTxns,
+                        ).animate().fadeIn(duration: 200.ms).slideY(begin: 0.08, end: 0),
+                      ],
+                    ],
                   );
-                }
-                return SliverList.separated(
-                  itemCount: recent.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: AppSpacing.sm),
-                  itemBuilder: (_, i) => _RecentTransactionTile(
-                    item: recent[i],
-                  ).animate(
-                      delay: (300 + i * 60).ms)
-                      .fadeIn(duration: 300.ms)
-                      .slideX(begin: 0.05, end: 0),
-                );
-              },
-              loading: () => const SliverToBoxAdapter(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => const SliverToBoxAdapter(
-                child: SizedBox.shrink(),
+                },
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.xxl),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (e, _) => const SizedBox.shrink(),
               ),
             ),
           ),
@@ -234,6 +234,7 @@ class _BudgetCard extends StatelessWidget {
         : '';
 
     return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -257,13 +258,13 @@ class _BudgetCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           AmountDisplay(
             amount: budget.available.round(),
             size: AmountSize.large,
             animate: true,
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
           _BudgetProgressBar(
             spent: budget.totalSpent.round(),
             total: (budget.salary + budget.extraIncome).round(),
@@ -280,6 +281,7 @@ class _BudgetCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -288,13 +290,13 @@ class _BudgetCardSkeleton extends StatelessWidget {
                 color: AppColors.divider,
                 borderRadius: BorderRadius.circular(4),
               )),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           Container(height: 36, width: 180,
               decoration: BoxDecoration(
                 color: AppColors.divider,
                 borderRadius: BorderRadius.circular(4),
               )),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
           Container(height: 6, width: double.infinity,
               decoration: BoxDecoration(
                 color: AppColors.divider,
@@ -329,7 +331,7 @@ class _BudgetProgressBar extends StatelessWidget {
             tween: Tween(begin: 0, end: ratio),
             duration: const Duration(milliseconds: 900),
             curve: Curves.easeOutCubic,
-            builder: (_, value, __) => LinearProgressIndicator(
+            builder: (_, value, _) => LinearProgressIndicator(
               value: value,
               minHeight: 6,
               backgroundColor: AppColors.divider.withValues(alpha: 4.0),
@@ -350,8 +352,78 @@ class _BudgetProgressBar extends StatelessWidget {
   }
 }
 
-class _RecentTransactionTile extends StatelessWidget {
-  const _RecentTransactionTile({required this.item});
+class _DayDetail extends StatelessWidget {
+  const _DayDetail({required this.day, required this.transactions});
+  final DateTime day;
+  final List<TransactionItem> transactions;
+
+  static final _dateFmt = DateFormat('M월 d일 EEEE', 'ko');
+  static final _amtFmt = NumberFormat('#,###');
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final totalIncome = transactions
+        .where((t) => t.isIncome)
+        .fold(0, (s, t) => s + t.amount);
+    final totalExpense = transactions
+        .where((t) => !t.isIncome)
+        .fold(0, (s, t) => s + t.amount.abs());
+
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(_dateFmt.format(day), style: tt.titleMedium),
+              const Spacer(),
+              if (totalIncome > 0)
+                Text('+${_amtFmt.format(totalIncome)}원',
+                    style: tt.labelMedium?.copyWith(
+                        color: AppColors.income,
+                        fontWeight: FontWeight.w600)),
+              if (totalIncome > 0 && totalExpense > 0)
+                const SizedBox(width: AppSpacing.sm),
+              if (totalExpense > 0)
+                Text('-${_amtFmt.format(totalExpense)}원',
+                    style: tt.labelMedium?.copyWith(
+                        color: AppColors.expense,
+                        fontWeight: FontWeight.w600)),
+            ],
+          ),
+          if (transactions.isEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Text('거래 내역이 없어요',
+                    style: tt.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary)),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.sm),
+            const Divider(height: 1),
+            ...transactions.asMap().entries.map((e) {
+              final isLast = e.key == transactions.length - 1;
+              return Column(
+                children: [
+                  _TransactionRow(item: e.value),
+                  if (!isLast)
+                    const Divider(height: 1, indent: 56, endIndent: 0),
+                ],
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionRow extends StatelessWidget {
+  const _TransactionRow({required this.item});
   final TransactionItem item;
 
   static final _amtFmt = NumberFormat('#,###');
@@ -360,7 +432,7 @@ class _RecentTransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
 
-    return GlassCard(
+    return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md, vertical: AppSpacing.sm,
       ),
@@ -383,8 +455,7 @@ class _RecentTransactionTile extends StatelessWidget {
                 Text(item.name,
                     style: tt.bodyMedium
                         ?.copyWith(fontWeight: FontWeight.w500)),
-                Text('${item.category.label} · ${_timeLabel(item.date)}',
-                    style: tt.labelSmall),
+                Text(item.category.label, style: tt.labelSmall),
               ],
             ),
           ),
@@ -400,15 +471,5 @@ class _RecentTransactionTile extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _timeLabel(DateTime date) {
-    final now = DateTime.now();
-    final diff = DateTime(now.year, now.month, now.day)
-        .difference(DateTime(date.year, date.month, date.day))
-        .inDays;
-    if (diff == 0) return '오늘';
-    if (diff == 1) return '어제';
-    return '${diff}일 전';
   }
 }
