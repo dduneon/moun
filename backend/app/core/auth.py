@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+
+logging.getLogger("passlib").setLevel(logging.ERROR)
 from redis import Redis
 
 from app.core.config import settings

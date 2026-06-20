@@ -17,6 +17,7 @@ from app.core.auth import (
     verify_password,
 )
 from app.core.deps import DbDep, RedisDep, UserDep
+from app.models.category import Category
 from app.models.user import User
 from app.schemas.auth import (
     AccessTokenResponse,
@@ -29,6 +30,17 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_DEFAULT_CATEGORIES = [
+    "식비", "교통", "쇼핑", "문화", "의료",
+    "통신", "카페", "여행", "구독", "기타",
+    "급여", "부업", "투자", "기타수입",
+]
+
+
+def _seed_default_categories(db, user_id: int) -> None:
+    for name in _DEFAULT_CATEGORIES:
+        db.add(Category(user_id=user_id, name=name))
+
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: DbDep):
@@ -40,6 +52,8 @@ def register(body: RegisterRequest, db: DbDep):
         name=body.name,
     )
     db.add(user)
+    db.flush()
+    _seed_default_categories(db, user.id)
     db.commit()
     db.refresh(user)
     return user
@@ -102,3 +116,14 @@ def logout(body: RefreshRequest, redis: RedisDep):
 @router.get("/me", response_model=UserResponse)
 def me(current_user: UserDep):
     return current_user
+
+
+@router.post("/seed-categories", status_code=status.HTTP_204_NO_CONTENT)
+def seed_categories(db: DbDep, user: UserDep):
+    """카테고리가 없는 기존 유저에게 기본 카테고리를 생성한다."""
+    existing = db.scalars(select(Category).where(Category.user_id == user.id)).all()
+    existing_names = {c.name for c in existing}
+    for name in _DEFAULT_CATEGORIES:
+        if name not in existing_names:
+            db.add(Category(user_id=user.id, name=name))
+    db.commit()
