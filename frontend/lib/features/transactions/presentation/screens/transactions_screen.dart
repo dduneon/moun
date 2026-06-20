@@ -305,17 +305,21 @@ class _TransactionListView extends StatelessWidget {
                     Text(
                       '+${_amtFmt.format(dayIncome)}원',
                       style: tt.labelSmall?.copyWith(
-                          color: AppColors.income,
-                          fontWeight: FontWeight.w600),
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w500),
                     ),
                   if (dayIncome > 0 && dayExpense > 0)
-                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      ' / ',
+                      style: tt.labelSmall?.copyWith(
+                          color: AppColors.textSecondary.withValues(alpha: 0.35)),
+                    ),
                   if (dayExpense > 0)
                     Text(
                       '-${_amtFmt.format(dayExpense)}원',
                       style: tt.labelSmall?.copyWith(
-                          color: AppColors.expense,
-                          fontWeight: FontWeight.w600),
+                          color: AppColors.textSecondary.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w500),
                     ),
                 ],
               ),
