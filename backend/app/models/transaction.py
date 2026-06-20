@@ -11,7 +11,6 @@ from app.db.base import Base
 from app.models.fixed_expense import PaymentMethod
 
 if TYPE_CHECKING:
-    from app.models.budget_cycle import BudgetCycle
     from app.models.card import Card
     from app.models.category import Category
     from app.models.user import User
@@ -20,8 +19,6 @@ if TYPE_CHECKING:
 class Transaction(Base):
     __tablename__ = "transaction"
     __table_args__ = (
-        Index("ix_transaction_user_spend_cycle", "user_id", "spend_cycle_id"),
-        Index("ix_transaction_user_billing_cycle", "user_id", "billing_cycle_id"),
         Index("ix_transaction_user_date", "user_id", "transaction_date"),
     )
 
@@ -33,8 +30,6 @@ class Transaction(Base):
     card_id: Mapped[int | None] = mapped_column(ForeignKey("card.id"))
     transaction_date: Mapped[date]
     billing_date: Mapped[date]
-    spend_cycle_id: Mapped[int] = mapped_column(ForeignKey("budget_cycle.id"))
-    billing_cycle_id: Mapped[int] = mapped_column(ForeignKey("budget_cycle.id"))
     name: Mapped[str | None] = mapped_column(String(200))
     memo: Mapped[str | None] = mapped_column(Text)
     receipt_image_url: Mapped[str | None] = mapped_column(String(500))
@@ -44,9 +39,3 @@ class Transaction(Base):
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
     card: Mapped[Card | None] = relationship(back_populates="transactions")
-    spend_cycle: Mapped[BudgetCycle] = relationship(
-        foreign_keys=[spend_cycle_id], back_populates="spend_transactions"
-    )
-    billing_cycle: Mapped[BudgetCycle] = relationship(
-        foreign_keys=[billing_cycle_id], back_populates="billing_transactions"
-    )

@@ -5,12 +5,14 @@ class TransactionRepository {
   TransactionRepository(this._dio);
   final Dio _dio;
 
-  Future<List<TransactionModel>> list({int? spendCycleId}) async {
+  Future<List<TransactionModel>> list({DateTime? startDate, DateTime? endDate}) async {
+    final params = <String, dynamic>{};
+    if (startDate != null) params['start_date'] = startDate.toIso8601String().substring(0, 10);
+    if (endDate != null) params['end_date'] = endDate.toIso8601String().substring(0, 10);
+
     final res = await _dio.get<List<dynamic>>(
       '/transactions',
-      queryParameters: spendCycleId != null
-          ? {'spend_cycle_id': spendCycleId}
-          : null,
+      queryParameters: params.isNotEmpty ? params : null,
     );
     return (res.data!)
         .map((e) => TransactionModel.fromJson(e as Map<String, dynamic>))

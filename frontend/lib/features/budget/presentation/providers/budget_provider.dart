@@ -11,7 +11,6 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 
 final currentCycleProvider = FutureProvider<BudgetCycle>((ref) async {
   final authState = ref.watch(authProvider);
-  // 인증 완료 전에는 API 호출하지 않음 (세션 복원 중 401 방지)
   if (authState is! AuthStateAuthenticated) {
     await Future<void>.delayed(const Duration(days: 365));
     throw Exception('not authenticated');
@@ -20,8 +19,9 @@ final currentCycleProvider = FutureProvider<BudgetCycle>((ref) async {
 });
 
 final availableBudgetProvider = FutureProvider<AvailableBudget>((ref) async {
-  final cycle = await ref.watch(currentCycleProvider.future);
-  return ref.read(budgetRepositoryProvider).getAvailableBudget(cycle.id);
+  // currentCycleProvider를 watch해서 인증 상태 의존성 유지
+  await ref.watch(currentCycleProvider.future);
+  return ref.read(budgetRepositoryProvider).getCurrentBudget();
 });
 
 final cycleListProvider = FutureProvider<List<BudgetCycle>>((ref) async {

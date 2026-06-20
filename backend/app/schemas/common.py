@@ -8,21 +8,6 @@ from pydantic import BaseModel
 from app.models.fixed_expense import PaymentMethod
 
 
-# ── BudgetCycle ───────────────────────────────────────────────────────────────
-
-class BudgetCycleResponse(BaseModel):
-    id: int
-    start_date: date
-    end_date: date
-    label: str
-    created_at: datetime
-    model_config = {"from_attributes": True}
-
-
-class BudgetCyclePatch(BaseModel):
-    label: Optional[str] = None
-
-
 # ── Income ────────────────────────────────────────────────────────────────────
 
 class IncomeCreate(BaseModel):
@@ -31,7 +16,6 @@ class IncomeCreate(BaseModel):
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
     received_date: Optional[date] = None
-    budget_cycle_id: Optional[int] = None
 
 
 class IncomeResponse(BaseModel):
@@ -41,7 +25,6 @@ class IncomeResponse(BaseModel):
     expected_amount: Optional[Decimal]
     actual_amount: Optional[Decimal]
     received_date: Optional[date]
-    budget_cycle_id: Optional[int]
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -52,7 +35,6 @@ class IncomePatch(BaseModel):
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
     received_date: Optional[date] = None
-    budget_cycle_id: Optional[int] = None
 
 
 # ── FixedExpense ──────────────────────────────────────────────────────────────
@@ -125,8 +107,6 @@ class TransactionResponse(BaseModel):
     card_id: Optional[int]
     transaction_date: date
     billing_date: date
-    spend_cycle_id: int
-    billing_cycle_id: int
     memo: Optional[str]
     receipt_image_url: Optional[str]
     created_at: datetime
@@ -138,5 +118,3 @@ class TransactionPatch(BaseModel):
     amount: Optional[Decimal] = None
     category_id: Optional[int] = None
     memo: Optional[str] = None
-
-

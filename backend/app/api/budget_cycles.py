@@ -1,56 +1,34 @@
-from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter
 
 from app.core.budget_calculator import get_available_budget
-from app.core.budget_cycle import get_or_create_current_cycle
+from app.core.budget_cycle import get_current_cycle, get_recent_cycles
 from app.core.deps import DbDep, UserDep
-from app.models.budget_cycle import BudgetCycle
-from app.schemas.budget import AvailableBudget
-from app.schemas.common import BudgetCyclePatch, BudgetCycleResponse
+from app.schemas.budget import AvailableBudget, CycleBoundsResponse
 
 router = APIRouter(prefix="/budget-cycles", tags=["budget-cycles"])
 
 
-def _get_or_404(db, user_id: int, cycle_id: int) -> BudgetCycle:
-    cycle = db.scalar(
-        select(BudgetCycle).where(BudgetCycle.id == cycle_id, BudgetCycle.user_id == user_id)
-    )
-    if not cycle:
-        raise HTTPException(status_code=404, detail="Not found")
-    return cycle
+@router.get("/current", response_model=CycleBoundsResponse)
+def current_cycle(user: UserDep):
+    c = get_current_cycle(user.salary_day)
+    return CycleBoundsResponse(start_date=c.start, end_date=c.end, label=c.label)
 
 
-@router.get("/current", response_model=BudgetCycleResponse)
-def current_cycle(db: DbDep, user: UserDep):
-    cycle = get_or_create_current_cycle(db, user.id)
-    db.commit()
-    db.refresh(cycle)
-    return cycle
+@router.get("", response_model=list[CycleBoundsResponse])
+def list_cycles(user: UserDep, count: int = 6):
+    cycles = get_recent_cycles(user.salary_day, count)
+    return [CycleBoundsResponse(start_date=c.start, end_date=c.end, label=c.label) for c in cycles]
 
 
-@router.get("", response_model=list[BudgetCycleResponse])
-def list_cycles(db: DbDep, user: UserDep):
-    return db.scalars(
-        select(BudgetCycle).where(BudgetCycle.user_id == user.id).order_by(BudgetCycle.start_date.desc())
-    ).all()
+@router.get("/current/budget", response_model=AvailableBudget)
+def current_budget(db: DbDep, user: UserDep):
+    c = get_current_cycle(user.salary_day)
+    return get_available_budget(db, user.id, c.start, c.end, c.label)
 
 
-@router.get("/{cycle_id}", response_model=BudgetCycleResponse)
-def get_cycle(cycle_id: int, db: DbDep, user: UserDep):
-    return _get_or_404(db, user.id, cycle_id)
-
-
-@router.patch("/{cycle_id}", response_model=BudgetCycleResponse)
-def patch_cycle(cycle_id: int, body: BudgetCyclePatch, db: DbDep, user: UserDep):
-    cycle = _get_or_404(db, user.id, cycle_id)
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(cycle, field, value)
-    db.commit()
-    db.refresh(cycle)
-    return cycle
-
-
-@router.get("/{cycle_id}/budget", response_model=AvailableBudget)
-def cycle_budget(cycle_id: int, db: DbDep, user: UserDep):
-    _get_or_404(db, user.id, cycle_id)
-    return get_available_budget(db, user.id, cycle_id)
+@router.get("/by-date/budget", response_model=AvailableBudget)
+def budget_by_date(start_date: str, end_date: str, label: str, db: DbDep, user: UserDep):
+    from datetime import date
+    start = date.fromisoformat(start_date)
+    end = date.fromisoformat(end_date)
+    return get_available_budget(db, user.id, start, end, label)

@@ -1,8 +1,10 @@
+from datetime import date
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.core.billing import calculate_billing_date
-from app.core.budget_cycle import get_cycle_for_date
+from app.core.budget_cycle import get_current_cycle
 from app.core.deps import DbDep, UserDep
 from app.models.card import Card
 from app.models.fixed_expense import PaymentMethod
@@ -23,14 +25,21 @@ def _get_or_404(db, user_id: int, txn_id: int) -> Transaction:
 def list_transactions(
     db: DbDep,
     user: UserDep,
-    spend_cycle_id: int | None = None,
-    billing_cycle_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ):
     q = select(Transaction).where(Transaction.user_id == user.id)
-    if spend_cycle_id is not None:
-        q = q.where(Transaction.spend_cycle_id == spend_cycle_id)
-    if billing_cycle_id is not None:
-        q = q.where(Transaction.billing_cycle_id == billing_cycle_id)
+    if start_date is not None:
+        q = q.where(Transaction.transaction_date >= start_date)
+    if end_date is not None:
+        q = q.where(Transaction.transaction_date <= end_date)
+    # 날짜 미지정 시 현재 사이클 범위 기본값
+    if start_date is None and end_date is None:
+        c = get_current_cycle(user.salary_day)
+        q = q.where(
+            Transaction.transaction_date >= c.start,
+            Transaction.transaction_date <= c.end,
+        )
     return db.scalars(q.order_by(Transaction.transaction_date.desc())).all()
 
 
@@ -45,8 +54,6 @@ def create_transaction(body: TransactionCreate, db: DbDep, user: UserDep):
             raise HTTPException(status_code=404, detail="Not found")
 
     billing_date = calculate_billing_date(body.transaction_date, body.payment_method, card)
-    spend_cycle = get_cycle_for_date(db, user.id, body.transaction_date)
-    billing_cycle = get_cycle_for_date(db, user.id, billing_date)
 
     obj = Transaction(
         user_id=user.id,
@@ -57,8 +64,6 @@ def create_transaction(body: TransactionCreate, db: DbDep, user: UserDep):
         card_id=body.card_id,
         transaction_date=body.transaction_date,
         billing_date=billing_date,
-        spend_cycle_id=spend_cycle.id,
-        billing_cycle_id=billing_cycle.id,
         memo=body.memo,
     )
     db.add(obj)

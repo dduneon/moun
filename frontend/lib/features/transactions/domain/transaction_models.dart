@@ -11,8 +11,6 @@ class TransactionModel {
     this.cardId,
     required this.transactionDate,
     required this.billingDate,
-    required this.spendCycleId,
-    required this.billingCycleId,
     this.memo,
   });
 
@@ -24,8 +22,6 @@ class TransactionModel {
   final int? cardId;
   final DateTime transactionDate;
   final DateTime billingDate;
-  final int spendCycleId;
-  final int billingCycleId;
   final String? memo;
 
   bool get isIncome => amount > 0;
@@ -41,8 +37,6 @@ class TransactionModel {
         transactionDate:
             DateTime.parse(json['transaction_date'] as String),
         billingDate: DateTime.parse(json['billing_date'] as String),
-        spendCycleId: json['spend_cycle_id'] as int,
-        billingCycleId: json['billing_cycle_id'] as int,
         memo: json['memo'] as String?,
       );
 }

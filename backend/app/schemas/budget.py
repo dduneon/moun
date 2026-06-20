@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -12,25 +13,29 @@ class CategoryAmount(BaseModel):
 
 
 class SpendSummary(BaseModel):
-    """spend_cycle 기준 — 내가 얼마 썼는지 (거래일 기준)."""
-    cycle_id: int
     total_spend: Decimal
     by_category: list[CategoryAmount]
 
 
 class BillingSummary(BaseModel):
-    """billing_cycle 기준 — 통장에서 얼마 빠지는지 (청구일 기준)."""
-    cycle_id: int
     total_billing: Decimal
     by_category: list[CategoryAmount]
 
 
+class CycleBoundsResponse(BaseModel):
+    start_date: date
+    end_date: date
+    label: str
+
+
 class AvailableBudget(BaseModel):
-    cycle_id: int
-    confirmed_income: Decimal      # actual_amount 확정된 수입 합계
-    expected_income: Decimal       # COALESCE(actual, expected) 예정 포함 합계
+    start_date: date
+    end_date: date
+    label: str
+    confirmed_income: Decimal
+    expected_income: Decimal
     fixed_expense: Decimal
     billed_transactions: Decimal
-    available: Decimal             # expected_income - fixed_expense - billed_transactions
+    available: Decimal
     spend_summary: SpendSummary
     billing_summary: BillingSummary

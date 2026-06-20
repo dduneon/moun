@@ -3,19 +3,16 @@ import 'package:flutter/foundation.dart';
 @immutable
 class BudgetCycle {
   const BudgetCycle({
-    required this.id,
     required this.startDate,
     required this.endDate,
     required this.label,
   });
 
-  final int id;
   final DateTime startDate;
   final DateTime endDate;
   final String label;
 
   factory BudgetCycle.fromJson(Map<String, dynamic> json) => BudgetCycle(
-        id: json['id'] as int,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
         label: json['label'] as String,
@@ -44,17 +41,14 @@ class CategoryAmount {
 @immutable
 class SpendSummary {
   const SpendSummary({
-    required this.cycleId,
     required this.totalSpend,
     required this.byCategory,
   });
 
-  final int cycleId;
   final double totalSpend;
   final List<CategoryAmount> byCategory;
 
   factory SpendSummary.fromJson(Map<String, dynamic> json) => SpendSummary(
-        cycleId: json['cycle_id'] as int,
         totalSpend: double.parse(json['total_spend'].toString()),
         byCategory: (json['by_category'] as List)
             .map((e) => CategoryAmount.fromJson(e as Map<String, dynamic>))
@@ -65,17 +59,14 @@ class SpendSummary {
 @immutable
 class BillingSummary {
   const BillingSummary({
-    required this.cycleId,
     required this.totalBilling,
     required this.byCategory,
   });
 
-  final int cycleId;
   final double totalBilling;
   final List<CategoryAmount> byCategory;
 
   factory BillingSummary.fromJson(Map<String, dynamic> json) => BillingSummary(
-        cycleId: json['cycle_id'] as int,
         totalBilling: double.parse(json['total_billing'].toString()),
         byCategory: (json['by_category'] as List)
             .map((e) => CategoryAmount.fromJson(e as Map<String, dynamic>))
@@ -86,7 +77,9 @@ class BillingSummary {
 @immutable
 class AvailableBudget {
   const AvailableBudget({
-    required this.cycleId,
+    required this.startDate,
+    required this.endDate,
+    required this.label,
     required this.confirmedIncome,
     required this.expectedIncome,
     required this.fixedExpense,
@@ -96,7 +89,9 @@ class AvailableBudget {
     required this.billingSummary,
   });
 
-  final int cycleId;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String label;
   final double confirmedIncome;
   final double expectedIncome;
   final double fixedExpense;
@@ -106,11 +101,12 @@ class AvailableBudget {
   final BillingSummary billingSummary;
 
   double get totalSpent => spendSummary.totalSpend.abs();
-
   bool get hasPendingIncome => confirmedIncome < expectedIncome;
 
   factory AvailableBudget.fromJson(Map<String, dynamic> json) => AvailableBudget(
-        cycleId: json['cycle_id'] as int,
+        startDate: DateTime.parse(json['start_date'] as String),
+        endDate: DateTime.parse(json['end_date'] as String),
+        label: json['label'] as String,
         confirmedIncome: double.parse(json['confirmed_income'].toString()),
         expectedIncome: double.parse(json['expected_income'].toString()),
         fixedExpense: double.parse(json['fixed_expense'].toString()),

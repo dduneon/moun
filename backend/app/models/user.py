@@ -9,7 +9,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.budget_cycle import BudgetCycle
     from app.models.card import Card
     from app.models.category import Category
     from app.models.fixed_expense import FixedExpense
@@ -29,7 +28,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    budget_cycles: Mapped[list[BudgetCycle]] = relationship(back_populates="user")
     incomes: Mapped[list[Income]] = relationship(back_populates="user")
     fixed_expenses: Mapped[list[FixedExpense]] = relationship(back_populates="user")
     cards: Mapped[list[Card]] = relationship(back_populates="user")

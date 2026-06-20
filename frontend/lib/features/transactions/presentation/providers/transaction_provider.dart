@@ -12,10 +12,14 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepository(ref.read(dioProvider));
 });
 
+/// 현재 사이클의 거래 목록 (날짜 범위 기반)
 final currentCycleTransactionsProvider =
     FutureProvider<List<TransactionModel>>((ref) async {
   final cycle = await ref.watch(currentCycleProvider.future);
-  return ref.read(transactionRepositoryProvider).list(spendCycleId: cycle.id);
+  return ref.read(transactionRepositoryProvider).list(
+        startDate: cycle.startDate,
+        endDate: cycle.endDate,
+      );
 });
 
 final transactionItemsProvider =
