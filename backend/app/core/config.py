@@ -7,6 +7,18 @@ class Settings(BaseSettings):
     APP_NAME: str = "모운"
     DATABASE_URL: str = "mysql+pymysql://moun:moun@localhost:3306/moun"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # JWT
+    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # Rate limiting: /auth/login
+    LOGIN_RATE_LIMIT_MAX: int = 5        # 최대 시도 횟수
+    LOGIN_RATE_LIMIT_WINDOW: int = 900   # 제한 윈도우 (초, 15분)
+
+    # MinIO
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
