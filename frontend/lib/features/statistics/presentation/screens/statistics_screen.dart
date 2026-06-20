@@ -104,42 +104,6 @@ class _CurrentCycleTab extends ConsumerWidget {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: budgetAsync.when(
-              data: (b) => Row(
-                children: [
-                  Expanded(child: _SummaryCard(
-                    label: '총 수입',
-                    amount: b.expectedIncome.round(),
-                    color: AppColors.income,
-                    icon: Icons.arrow_circle_up_rounded,
-                  )),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: _SummaryCard(
-                    label: '총 지출',
-                    amount: -b.totalSpent.round(),
-                    color: AppColors.expense,
-                    icon: Icons.arrow_circle_down_rounded,
-                  )),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: _SummaryCard(
-                    label: '순수익',
-                    amount: (b.expectedIncome - b.totalSpent).round(),
-                    color: AppColors.primary,
-                    icon: Icons.savings_rounded,
-                  )),
-                ],
-              ),
-              loading: () => const SizedBox(height: 80),
-              error: (_, __) => const SizedBox.shrink(),
-            ).animate(delay: 100.ms).fadeIn(),
-          ),
-        ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
-
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: GlassCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,9 +263,10 @@ class _CycleCompareTab extends ConsumerWidget {
                         );
                       }
                       final barData = budgets.map((b) => MonthlyBarData(
-                            label: b.label,
+                            label: '${b.startDate.month}월',
                             income: b.expectedIncome.round(),
                             expense: b.totalSpent.round(),
+                            fixedExpense: b.fixedExpense.round(),
                           )).toList();
                       return MonthlyBarChart(data: barData);
                     },
@@ -352,7 +317,7 @@ class _CycleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final net = budget.expectedIncome - budget.totalSpent;
+    final net = budget.available;
     final netColor = net >= 0 ? AppColors.income : AppColors.expense;
 
     return GlassCard(
@@ -366,20 +331,10 @@ class _CycleRow extends StatelessWidget {
             child: Text(budget.label,
                 style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '지출 ${_fmtWon(budget.totalSpent.round())}',
-                style: tt.labelSmall?.copyWith(color: AppColors.expense),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                (net >= 0 ? '+' : '') + _fmtWon(net.round()),
-                style: tt.labelSmall?.copyWith(
-                    color: netColor, fontWeight: FontWeight.w600),
-              ),
-            ],
+          Text(
+            (net >= 0 ? '+' : '') + _fmtWon(net.round()),
+            style: tt.labelSmall?.copyWith(
+                color: netColor, fontWeight: FontWeight.w600),
           ),
         ],
       ),
