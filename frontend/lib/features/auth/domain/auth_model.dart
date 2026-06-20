@@ -32,6 +32,7 @@ class AuthStateAuthenticating extends AuthState {
 }
 
 class AuthStateAuthenticated extends AuthState {
-  const AuthStateAuthenticated(this.user);
+  const AuthStateAuthenticated(this.user, {this.needsOnboarding = false});
   final AuthUser user;
+  final bool needsOnboarding;
 }

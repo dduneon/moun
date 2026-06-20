@@ -49,6 +49,13 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  void completeOnboarding() {
+    final current = state;
+    if (current is AuthStateAuthenticated) {
+      state = AuthStateAuthenticated(current.user);
+    }
+  }
+
   Future<void> register({
     required String email,
     required String password,
@@ -66,7 +73,7 @@ class AuthNotifier extends Notifier<AuthState> {
         refreshToken: tokens.refreshToken,
       );
       final user = await _repo.getMe();
-      state = AuthStateAuthenticated(user);
+      state = AuthStateAuthenticated(user, needsOnboarding: true);
     } on DioException catch (e) {
       state = const AuthStateUnauthenticated();
       throw _mapDioError(e);

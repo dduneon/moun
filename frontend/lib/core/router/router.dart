@@ -5,6 +5,7 @@ import '../../features/auth/domain/auth_model.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/transactions/presentation/screens/transactions_screen.dart';
 import '../../features/statistics/presentation/screens/statistics_screen.dart';
@@ -27,14 +28,19 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final onAuthScreen =
           location == '/login' || location == '/register';
+      final onOnboarding = location == '/onboarding';
 
       if (!isAuth && !onAuthScreen) return '/login';
-      if (isAuth && onAuthScreen) return '/home';
+      if (authState case AuthStateAuthenticated(:final needsOnboarding)) {
+        if (needsOnboarding && !onOnboarding) return '/onboarding';
+        if (!needsOnboarding && (onAuthScreen || onOnboarding)) return '/home';
+      }
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
 
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => MainShell(navigationShell: shell),
