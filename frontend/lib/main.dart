@@ -5,6 +5,11 @@ import 'core/constants/app_constants.dart';
 import 'core/network/dio_provider.dart';
 import 'core/router/router.dart';
 import 'core/storage/token_storage.dart';
+import 'core/theme/app_theme.dart';
+import 'features/_design_showcase/showcase_screen.dart';
+
+// Set to false to use the real auth router
+const _showDesignShowcase = true;
 
 void main() {
   runApp(
@@ -24,13 +29,22 @@ class MounApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (_showDesignShowcase) {
+      return MaterialApp(
+        title: appName,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        home: const DesignShowcaseScreen(),
+        debugShowCheckedModeBanner: false,
+      );
+    }
+
     return MaterialApp.router(
       title: appName,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       routerConfig: ref.watch(routerProvider),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
