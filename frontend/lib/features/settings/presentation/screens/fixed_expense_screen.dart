@@ -369,6 +369,8 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.expense,
             foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.expense.withValues(alpha: 0.35),
+            disabledForegroundColor: Colors.white70,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             shape: RoundedRectangleBorder(

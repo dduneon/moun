@@ -9,6 +9,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/glass_card.dart';
+import '../../../../features/budget/presentation/providers/budget_provider.dart';
 import '../providers/settings_provider.dart';
 
 class FixedIncomeScreen extends ConsumerWidget {
@@ -95,6 +96,7 @@ class FixedIncomeScreen extends ConsumerWidget {
                                             .read(settingsRepositoryProvider)
                                             .deleteIncome(e.id);
                                         ref.invalidate(fixedIncomesProvider);
+                                        ref.invalidate(availableBudgetProvider);
                                       }
                                     },
                                   ),
@@ -111,14 +113,16 @@ class FixedIncomeScreen extends ConsumerWidget {
                               context,
                               title: '고정 수입 추가',
                               child: _AddIncomeForm(
-                                onSave: (name, amount) async {
+                                onSave: (name, amount, scheduledDay) async {
                                   await ref
                                       .read(settingsRepositoryProvider)
                                       .createIncome(
                                         name: name,
                                         amount: amount,
+                                        scheduledDay: scheduledDay,
                                       );
                                   ref.invalidate(fixedIncomesProvider);
+                                  ref.invalidate(availableBudgetProvider);
                                 },
                               ),
                             );
@@ -144,6 +148,8 @@ class FixedIncomeScreen extends ConsumerWidget {
     );
   }
 }
+
+// ── 수입 항목 행 ───────────────────────────────────────────────
 
 class _IncomeRow extends StatelessWidget {
   const _IncomeRow({
@@ -183,15 +189,24 @@ class _IncomeRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name,
-                    style:
-                        tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                if (item.scheduledDay != null)
+                  Text(
+                    '매월 ${item.scheduledDay}일',
+                    style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  ),
               ],
             ),
           ),
-          Text(
-            '+${fmt.format(item.expectedAmount.round())}원',
-            style: tt.bodyMedium?.copyWith(
-                color: AppColors.income, fontWeight: FontWeight.w600),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '+${fmt.format(item.expectedAmount.round())}원',
+                style: tt.bodyMedium?.copyWith(
+                    color: AppColors.income, fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
           const SizedBox(width: AppSpacing.sm),
           GestureDetector(
@@ -212,6 +227,8 @@ class _IncomeRow extends StatelessWidget {
     );
   }
 }
+
+// ── 추가 행 ───────────────────────────────────────────────────
 
 class _AddRow extends StatelessWidget {
   const _AddRow(
@@ -254,7 +271,7 @@ class _AddRow extends StatelessWidget {
 
 class _AddIncomeForm extends StatefulWidget {
   const _AddIncomeForm({required this.onSave});
-  final Future<void> Function(String name, double amount) onSave;
+  final Future<void> Function(String name, double amount, int scheduledDay) onSave;
 
   @override
   State<_AddIncomeForm> createState() => _AddIncomeFormState();
@@ -263,7 +280,20 @@ class _AddIncomeForm extends StatefulWidget {
 class _AddIncomeFormState extends State<_AddIncomeForm> {
   final _nameCtrl = TextEditingController();
   int _amount = 0;
+  int? _scheduledDay;
   bool _saving = false;
+
+  bool get _canSave =>
+      !_saving &&
+      _nameCtrl.text.trim().isNotEmpty &&
+      _amount > 0 &&
+      _scheduledDay != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -288,22 +318,29 @@ class _AddIncomeFormState extends State<_AddIncomeForm> {
         const SizedBox(height: AppSpacing.md),
         AmountTextField(
           label: '예상 금액',
-          onChanged: (v) => _amount = v,
+          onChanged: (v) => setState(() => _amount = v),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _InlineDayPicker(
+          label: '받는 날',
+          value: _scheduledDay,
+          onChanged: (v) => setState(() => _scheduledDay = v),
         ),
         const SizedBox(height: AppSpacing.xl),
         ElevatedButton(
-          onPressed:
-              _saving || _nameCtrl.text.trim().isEmpty || _amount <= 0
-                  ? null
-                  : () async {
-                      setState(() => _saving = true);
-                      await widget.onSave(
-                          _nameCtrl.text.trim(), _amount.toDouble());
-                      if (context.mounted) Navigator.pop(context);
-                    },
+          onPressed: _canSave
+              ? () async {
+                  setState(() => _saving = true);
+                  await widget.onSave(
+                      _nameCtrl.text.trim(), _amount.toDouble(), _scheduledDay!);
+                  if (context.mounted) Navigator.pop(context);
+                }
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.income,
             foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.income.withValues(alpha: 0.35),
+            disabledForegroundColor: Colors.white70,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
             shape: RoundedRectangleBorder(
@@ -313,8 +350,7 @@ class _AddIncomeFormState extends State<_AddIncomeForm> {
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child:
-                      CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
               : Text('추가', style: tt.labelLarge),
         ),
@@ -323,3 +359,134 @@ class _AddIncomeFormState extends State<_AddIncomeForm> {
   }
 }
 
+// ── 받는 날 피커 ──────────────────────────────────────────────
+
+class _InlineDayPicker extends StatefulWidget {
+  const _InlineDayPicker({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final int? value;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  State<_InlineDayPicker> createState() => _InlineDayPickerState();
+}
+
+class _InlineDayPickerState extends State<_InlineDayPicker> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final hasValue = widget.value != null;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: const Color(0x0A000000),
+        borderRadius: AppRadius.buttonBorderRadius,
+        border: Border.all(
+            color: _open
+                ? AppColors.income
+                : hasValue
+                    ? AppColors.income.withValues(alpha: 0.5)
+                    : AppColors.divider,
+            width: _open ? 1.5 : 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => _open = !_open),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              child: Row(
+                children: [
+                  Text(
+                    widget.label,
+                    style: tt.bodyLarge?.copyWith(
+                      color: hasValue
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (hasValue)
+                    Text(
+                      '매월 ${widget.value}일',
+                      style: tt.bodyMedium?.copyWith(
+                        color: AppColors.income,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(width: AppSpacing.xs),
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more_rounded,
+                        size: 20, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState:
+                _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisSpacing: AppSpacing.xs,
+                  crossAxisSpacing: AppSpacing.xs,
+                  childAspectRatio: 1,
+                ),
+                itemCount: 28,
+                itemBuilder: (_, i) {
+                  final day = i + 1;
+                  final isSel = day == widget.value;
+                  return GestureDetector(
+                    onTap: () {
+                      widget.onChanged(day);
+                      setState(() => _open = false);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: isSel
+                            ? AppColors.income
+                            : AppColors.income.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$day',
+                        style: tt.labelSmall?.copyWith(
+                          color:
+                              isSel ? Colors.white : AppColors.textPrimary,
+                          fontWeight:
+                              isSel ? FontWeight.w700 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
