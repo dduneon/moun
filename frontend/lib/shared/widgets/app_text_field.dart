@@ -131,11 +131,13 @@ class AmountTextField extends StatefulWidget {
   const AmountTextField({
     super.key,
     this.controller,
+    this.focusNode,
     this.label = '금액',
     this.onChanged,
   });
 
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String label;
   final ValueChanged<int>? onChanged;
 
@@ -184,6 +186,7 @@ class _AmountTextFieldState extends State<AmountTextField> {
   Widget build(BuildContext context) {
     return AppTextField(
       controller: _ctrl,
+      focusNode: widget.focusNode,
       label: widget.label,
       hint: '0',
       suffixText: '원',
