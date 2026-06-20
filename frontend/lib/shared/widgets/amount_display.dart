@@ -10,18 +10,14 @@ class AmountDisplay extends StatefulWidget {
     super.key,
     required this.amount,
     this.size = AmountSize.medium,
-    this.showSign = false,
     this.animate = false,
     this.style,
-    this.currencySymbol = '₩',
   });
 
   final int amount;
   final AmountSize size;
-  final bool showSign;
   final bool animate;
   final TextStyle? style;
-  final String currencySymbol;
 
   @override
   State<AmountDisplay> createState() => _AmountDisplayState();
@@ -68,33 +64,37 @@ class _AmountDisplayState extends State<AmountDisplay>
     return AppColors.textPrimary;
   }
 
-  String _format(int value) {
-    final abs = _fmt.format(value.abs());
-    final sign = widget.showSign
-        ? (value >= 0 ? '+' : '-')
-        : (value < 0 ? '-' : '');
-    return '${widget.currencySymbol}$sign$abs';
-  }
+  // 절댓값만 표시, 단위 '원' 후치
+  String _format(int value) => '${_fmt.format(value.abs())}원';
 
   @override
   Widget build(BuildContext context) {
     final style = _baseStyle.copyWith(color: _color);
 
     if (!widget.animate) {
-      return Text(_format(widget.amount), style: style);
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(_format(widget.amount), style: style, maxLines: 1),
+      );
     }
 
     return AnimatedBuilder(
       animation: _animation,
       builder: (_, __) {
         final current = (widget.amount * _animation.value).round();
-        return Text(_format(current), style: style);
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(_format(current), style: style, maxLines: 1),
+        );
       },
     );
   }
 }
 
-// Convenience widget for displaying income/expense with a label
+// 라벨 + 금액 조합 위젯
+// amount 부호는 색상(수입=green, 지출=red)으로만 표현, 숫자는 절댓값
 class LabeledAmount extends StatelessWidget {
   const LabeledAmount({
     super.key,
@@ -123,12 +123,7 @@ class LabeledAmount extends StatelessWidget {
               ?.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 2),
-        AmountDisplay(
-          amount: amount,
-          size: size,
-          showSign: false,
-          animate: animate,
-        ),
+        AmountDisplay(amount: amount, size: size, animate: animate),
       ],
     );
   }

@@ -3,9 +3,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/widgets/amount_display.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_text_field.dart';
+import '../../shared/widgets/category_selector.dart';
+import '../../shared/widgets/charts/category_donut_chart.dart';
+import '../../shared/widgets/charts/monthly_bar_chart.dart';
+import '../../shared/widgets/charts/spending_line_chart.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_floating_navbar.dart';
 import '../../shared/widgets/gradient_background.dart';
+import '../../shared/widgets/selection_chip.dart';
 
 class DesignShowcaseScreen extends StatefulWidget {
   const DesignShowcaseScreen({super.key});
@@ -16,6 +24,9 @@ class DesignShowcaseScreen extends StatefulWidget {
 
 class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
   int _selectedTab = 0;
+  bool _isExpense = true;
+  CategoryItem? _selectedCategory;
+  Set<String> _selectedPeriod = {'이번 달'};
 
   @override
   Widget build(BuildContext context) {
@@ -100,25 +111,30 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
                       Text('이번 달 예산 현황', style: tt.titleLarge),
                       const SizedBox(height: AppSpacing.lg),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          LabeledAmount(
-                            label: '총 예산',
-                            amount: 3000000,
-                            size: AmountSize.medium,
-                            animate: true,
+                          Expanded(
+                            child: LabeledAmount(
+                              label: '총 예산',
+                              amount: 3000000,
+                              size: AmountSize.small,
+                              animate: true,
+                            ),
                           ),
-                          LabeledAmount(
-                            label: '사용 금액',
-                            amount: -1250000,
-                            size: AmountSize.medium,
-                            animate: true,
+                          Expanded(
+                            child: LabeledAmount(
+                              label: '사용 금액',
+                              amount: -1250000,
+                              size: AmountSize.small,
+                              animate: true,
+                            ),
                           ),
-                          LabeledAmount(
-                            label: '잔여',
-                            amount: 1750000,
-                            size: AmountSize.medium,
-                            animate: true,
+                          Expanded(
+                            child: LabeledAmount(
+                              label: '잔여',
+                              amount: 1750000,
+                              size: AmountSize.small,
+                              animate: true,
+                            ),
                           ),
                         ],
                       ),
@@ -208,15 +224,22 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          AmountDisplay(amount: 500000, size: AmountSize.medium, showSign: true, animate: true),
-                          AmountDisplay(amount: -120000, size: AmountSize.medium, showSign: true, animate: true),
-                          AmountDisplay(amount: -88000, size: AmountSize.medium, style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.expensePending,
-                          ), animate: true),
+                          Expanded(child: AmountDisplay(amount: 500000, size: AmountSize.small, animate: true)),
+                          Expanded(child: AmountDisplay(amount: -120000, size: AmountSize.small, animate: true)),
+                          Expanded(
+                            child: AmountDisplay(
+                              amount: -88000,
+                              size: AmountSize.small,
+                              style: const TextStyle(
+                                fontFamily: 'Pretendard',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.expensePending,
+                              ),
+                              animate: true,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -258,6 +281,262 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
                     ],
                   ),
                 ).animate(delay: 300.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Charts ──────────────────────────────────────────────
+                _SectionLabel('카테고리 도넛 차트'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: CategoryDonutChart(
+                    centerLabel: '이번 달 지출',
+                    items: const [
+                      CategoryData(label: '식비', amount: 420000, color: Color(0xFF5B8DEF)),
+                      CategoryData(label: '교통', amount: 85000, color: Color(0xFF7C6FF0)),
+                      CategoryData(label: '쇼핑', amount: 230000, color: Color(0xFFFF6B6B)),
+                      CategoryData(label: '문화', amount: 120000, color: Color(0xFF34C77B)),
+                      CategoryData(label: '기타', amount: 65000, color: Color(0xFFB39DFF)),
+                    ],
+                  ),
+                ).animate(delay: 100.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                _SectionLabel('월별 수입/지출 바 차트'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: MonthlyBarChart(
+                    data: const [
+                      MonthlyBarData(label: '1월', income: 4200000, expense: 1800000),
+                      MonthlyBarData(label: '2월', income: 4200000, expense: 2100000),
+                      MonthlyBarData(label: '3월', income: 4500000, expense: 1650000),
+                      MonthlyBarData(label: '4월', income: 4200000, expense: 2300000),
+                      MonthlyBarData(label: '5월', income: 4200000, expense: 1950000),
+                      MonthlyBarData(label: '6월', income: 4700000, expense: 1250000),
+                    ],
+                  ),
+                ).animate(delay: 150.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                _SectionLabel('일별 지출 라인 차트 (예산선 포함)'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: SpendingLineChart(
+                    budgetLimit: 2000000,
+                    points: const [
+                      SpendingPoint(day: 1, amount: 65000),
+                      SpendingPoint(day: 3, amount: 142000),
+                      SpendingPoint(day: 5, amount: 280000),
+                      SpendingPoint(day: 8, amount: 395000),
+                      SpendingPoint(day: 10, amount: 520000),
+                      SpendingPoint(day: 13, amount: 710000),
+                      SpendingPoint(day: 15, amount: 880000),
+                      SpendingPoint(day: 18, amount: 1050000),
+                      SpendingPoint(day: 20, amount: 1230000),
+                      SpendingPoint(day: 22, amount: 1480000),
+                      SpendingPoint(day: 25, amount: 1650000),
+                      SpendingPoint(day: 28, amount: 1820000),
+                      SpendingPoint(day: 30, amount: 1950000),
+                    ],
+                  ),
+                ).animate(delay: 200.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                _SectionLabel('이번 달 vs 지난 달 비교'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: CompareLineChart(
+                    series: const [
+                      MultiLineData(
+                        label: '이번 달',
+                        color: AppColors.primary,
+                        points: [
+                          SpendingPoint(day: 1, amount: 65000),
+                          SpendingPoint(day: 5, amount: 280000),
+                          SpendingPoint(day: 10, amount: 520000),
+                          SpendingPoint(day: 15, amount: 880000),
+                          SpendingPoint(day: 20, amount: 1230000),
+                          SpendingPoint(day: 25, amount: 1650000),
+                          SpendingPoint(day: 30, amount: 1950000),
+                        ],
+                      ),
+                      MultiLineData(
+                        label: '지난 달',
+                        color: AppColors.textSecondary,
+                        points: [
+                          SpendingPoint(day: 1, amount: 95000),
+                          SpendingPoint(day: 5, amount: 380000),
+                          SpendingPoint(day: 10, amount: 720000),
+                          SpendingPoint(day: 15, amount: 1100000),
+                          SpendingPoint(day: 20, amount: 1580000),
+                          SpendingPoint(day: 25, amount: 1920000),
+                          SpendingPoint(day: 30, amount: 2100000),
+                        ],
+                      ),
+                    ],
+                  ),
+                ).animate(delay: 250.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Buttons ─────────────────────────────────────────────
+                _SectionLabel('버튼'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: Column(
+                    children: [
+                      AppButton(label: '저장하기', onPressed: () {}),
+                      const SizedBox(height: AppSpacing.sm),
+                      AppButton(label: '취소', onPressed: () {}, variant: AppButtonVariant.secondary),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(children: [
+                        Expanded(child: AppButton(label: '닫기', onPressed: () {}, variant: AppButtonVariant.ghost, expanded: false)),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: AppButton(label: '삭제', onPressed: () {}, variant: AppButtonVariant.danger, expanded: false)),
+                      ]),
+                      const SizedBox(height: AppSpacing.sm),
+                      AppButton(label: '로딩 중...', onPressed: null, loading: true),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Text Fields ─────────────────────────────────────────
+                _SectionLabel('입력창'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: Column(
+                    children: [
+                      const AppTextField(label: '메모', hint: '거래 내용을 입력하세요'),
+                      const SizedBox(height: AppSpacing.md),
+                      const AmountTextField(label: '금액'),
+                      const SizedBox(height: AppSpacing.md),
+                      const AppTextField(
+                        label: '비밀번호',
+                        hint: '비밀번호를 입력하세요',
+                        obscureText: true,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Selection Chips ─────────────────────────────────────
+                _SectionLabel('선택 칩'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('기간 필터', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      SelectionChipGroup<String>(
+                        items: const ['이번 달', '지난 달', '3개월', '6개월', '1년'],
+                        labelOf: (s) => s,
+                        selected: _selectedPeriod,
+                        onSelected: (v) => setState(() => _selectedPeriod = v),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('수입/지출 타입', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      TransactionTypeToggle(
+                        isExpense: _isExpense,
+                        onChanged: (v) => setState(() => _isExpense = v),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Category Selector ───────────────────────────────────
+                _SectionLabel('카테고리 선택'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('인라인 그리드', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: AppSpacing.md),
+                      CategoryGrid(
+                        items: defaultExpenseCategories,
+                        selectedId: _selectedCategory?.id,
+                        onSelected: (c) => setState(() => _selectedCategory = c),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('필드 탭 → 바텀시트', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      CategoryPickerField(
+                        selected: _selectedCategory,
+                        onSelected: (c) => setState(() => _selectedCategory = c),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Bottom Sheet & Dialog ───────────────────────────────
+                _SectionLabel('바텀시트 / 다이얼로그'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: Column(
+                    children: [
+                      AppButton(
+                        label: '거래 추가 바텀시트 열기',
+                        onPressed: () => AppBottomSheet.show(
+                          context,
+                          title: '거래 추가',
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TransactionTypeToggle(
+                                isExpense: _isExpense,
+                                onChanged: (v) => setState(() => _isExpense = v),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              const AmountTextField(label: '금액'),
+                              const SizedBox(height: AppSpacing.md),
+                              CategoryPickerField(
+                                selected: _selectedCategory,
+                                onSelected: (c) => setState(() => _selectedCategory = c),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              const AppTextField(label: '메모', hint: '(선택)'),
+                              const SizedBox(height: AppSpacing.xl),
+                              AppButton(label: '저장하기', onPressed: () => Navigator.pop(context)),
+                            ],
+                          ),
+                        ),
+                        icon: Icons.add_rounded,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      AppButton(
+                        label: '삭제 확인 다이얼로그',
+                        onPressed: () async {
+                          final ok = await AppConfirmDialog.show(
+                            context,
+                            title: '거래 삭제',
+                            message: '이 거래를 삭제하면 되돌릴 수 없어요. 계속할까요?',
+                            confirmLabel: '삭제',
+                            isDestructive: true,
+                          );
+                          if (ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('삭제되었습니다')),
+                            );
+                          }
+                        },
+                        variant: AppButtonVariant.danger,
+                        icon: Icons.delete_outline_rounded,
+                      ),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: AppSpacing.xl),
 
@@ -434,7 +713,7 @@ class _TransactionItem extends StatelessWidget {
               AmountDisplay(
                 amount: amount,
                 size: AmountSize.small,
-                showSign: false,
+                
               ),
             ],
           ),
