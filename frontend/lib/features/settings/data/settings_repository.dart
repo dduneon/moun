@@ -5,19 +5,19 @@ class FixedIncomeItem {
     required this.id,
     required this.name,
     required this.expectedAmount,
-    this.receivedDate,
+    this.scheduledDay,
   });
 
   final int id;
   final String name;
   final double expectedAmount;
-  final String? receivedDate;
+  final int? scheduledDay;
 
   factory FixedIncomeItem.fromJson(Map<String, dynamic> j) => FixedIncomeItem(
         id: j['id'] as int,
         name: j['name'] as String,
         expectedAmount: double.parse((j['expected_amount'] ?? '0').toString()),
-        receivedDate: j['received_date'] as String?,
+        scheduledDay: j['scheduled_day'] as int?,
       );
 }
 
@@ -61,10 +61,12 @@ class SettingsRepository {
   Future<FixedIncomeItem> createIncome({
     required String name,
     required double amount,
+    int? scheduledDay,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/incomes', data: {
       'name': name,
       'expected_amount': amount,
+      if (scheduledDay != null) 'scheduled_day': scheduledDay,
     });
     return FixedIncomeItem.fromJson(res.data!);
   }
@@ -96,4 +98,10 @@ class SettingsRepository {
 
   Future<void> toggleFixedExpense(int id, bool isActive) =>
       _dio.patch<void>('/fixed-expenses/$id', data: {'is_active': isActive});
+
+  // ── User settings ─────────────────────────────
+  Future<Map<String, dynamic>> updateSalaryDay(int day) async {
+    final res = await _dio.patch<Map<String, dynamic>>('/auth/me', data: {'salary_day': day});
+    return res.data!;
+  }
 }

@@ -87,7 +87,8 @@ class BillingSummary {
 class AvailableBudget {
   const AvailableBudget({
     required this.cycleId,
-    required this.totalIncome,
+    required this.confirmedIncome,
+    required this.expectedIncome,
     required this.fixedExpense,
     required this.billedTransactions,
     required this.available,
@@ -96,7 +97,8 @@ class AvailableBudget {
   });
 
   final int cycleId;
-  final double totalIncome;
+  final double confirmedIncome;
+  final double expectedIncome;
   final double fixedExpense;
   final double billedTransactions;
   final double available;
@@ -105,9 +107,12 @@ class AvailableBudget {
 
   double get totalSpent => spendSummary.totalSpend.abs();
 
+  bool get hasPendingIncome => confirmedIncome < expectedIncome;
+
   factory AvailableBudget.fromJson(Map<String, dynamic> json) => AvailableBudget(
         cycleId: json['cycle_id'] as int,
-        totalIncome: double.parse(json['total_income'].toString()),
+        confirmedIncome: double.parse(json['confirmed_income'].toString()),
+        expectedIncome: double.parse(json['expected_income'].toString()),
         fixedExpense: double.parse(json['fixed_expense'].toString()),
         billedTransactions: double.parse(json['billed_transactions'].toString()),
         available: double.parse(json['available'].toString()),

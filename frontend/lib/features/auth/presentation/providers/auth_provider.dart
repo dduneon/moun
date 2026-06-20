@@ -4,6 +4,7 @@ import '../../data/auth_repository.dart';
 import '../../domain/auth_model.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/storage/token_storage.dart';
+import '../../../settings/presentation/providers/settings_provider.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return RemoteAuthRepository(ref.read(dioProvider));
@@ -92,6 +93,13 @@ class AuthNotifier extends Notifier<AuthState> {
       await _storage.clearTokens();
       state = const AuthStateUnauthenticated();
     }
+  }
+
+  Future<void> updateSalaryDay(int day) async {
+    final current = state;
+    if (current is! AuthStateAuthenticated) return;
+    await ref.read(settingsRepositoryProvider).updateSalaryDay(day);
+    state = AuthStateAuthenticated(current.user.copyWith(salaryDay: day));
   }
 
   String _mapDioError(DioException e) {

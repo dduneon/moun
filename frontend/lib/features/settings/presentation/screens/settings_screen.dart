@@ -68,6 +68,32 @@ class SettingsScreen extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
 
+          // ── 예산 기준일
+          SliverToBoxAdapter(child: _SectionHeader('예산 설정')),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                child: _SettingsTile(
+                  icon: Icons.calendar_month_rounded,
+                  iconColor: AppColors.primary,
+                  label: '예산 기준일',
+                  value: user != null ? '매월 ${user.salaryDay}일' : null,
+                  onTap: () async {
+                    final current = user?.salaryDay ?? 1;
+                    final picked = await _pickSalaryDay(context, current);
+                    if (picked != null && picked != current && context.mounted) {
+                      await ref.read(authProvider.notifier).updateSalaryDay(picked);
+                    }
+                  },
+                ),
+              ).animate(delay: 150.ms).fadeIn(),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+
           // ── 고정 수입/지출
           SliverToBoxAdapter(child: _SectionHeader('정기 항목')),
           SliverToBoxAdapter(
@@ -173,6 +199,143 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 // ── 공용 서브 위젯 ─────────────────────────────────────────────
+
+String _cycleRangeLabel(int salaryDay) {
+  final now = DateTime.now();
+  if (salaryDay <= 1) {
+    final lastDay = DateTime(now.year, now.month + 1, 0).day;
+    return '${now.month}월 1일 ~ ${now.month}월 ${lastDay}일';
+  }
+  if (now.day >= salaryDay) {
+    final nextMonth = now.month == 12 ? 1 : now.month + 1;
+    final nextYear = now.month == 12 ? now.year + 1 : now.year;
+    return '${now.month}월 ${salaryDay}일 ~ ${nextMonth}월 ${salaryDay - 1}일';
+  } else {
+    final prevMonth = now.month == 1 ? 12 : now.month - 1;
+    return '${prevMonth}월 ${salaryDay}일 ~ ${now.month}월 ${salaryDay - 1}일';
+  }
+}
+
+Future<int?> _pickSalaryDay(BuildContext context, int current) async {
+  int selected = current;
+  return showModalBottomSheet<int>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        final rangeLabel = _cycleRangeLabel(selected);
+        final bottomPadding = MediaQuery.of(ctx).viewInsets.bottom +
+            MediaQuery.of(ctx).padding.bottom;
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
+            AppSpacing.lg + bottomPadding,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('예산 기준일',
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                  textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.xs),
+              Text('매월 몇 일부터 예산을 시작할까요?',
+                  style: Theme.of(ctx)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.md),
+
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  key: ValueKey(rangeLabel),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_today_rounded,
+                          size: 14, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        '이번 사이클: $rangeLabel',
+                        style: Theme.of(ctx).textTheme.labelMedium?.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 7,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
+                children: List.generate(28, (i) {
+                  final day = i + 1;
+                  final isSelected = day == selected;
+                  return GestureDetector(
+                    onTap: () => setState(() => selected = day),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.primary.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$day',
+                        style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                            ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, selected),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.buttonBorderRadius),
+                ),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
