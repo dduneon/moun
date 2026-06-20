@@ -22,7 +22,10 @@ def _get_or_404(db, user_id: int, cycle_id: int) -> BudgetCycle:
 
 @router.get("/current", response_model=BudgetCycleResponse)
 def current_cycle(db: DbDep, user: UserDep):
-    return get_or_create_current_cycle(db, user.id)
+    cycle = get_or_create_current_cycle(db, user.id)
+    db.commit()
+    db.refresh(cycle)
+    return cycle
 
 
 @router.get("", response_model=list[BudgetCycleResponse])
