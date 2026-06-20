@@ -44,7 +44,6 @@ class _MounCalendarState extends State<MounCalendar> {
   DateTime? _selected;
 
   static final _monthFmt = DateFormat('yyyy년 M월');
-  static final _amtFmt = NumberFormat('#,###');
 
   @override
   void initState() {
@@ -155,14 +154,6 @@ class _MounCalendarState extends State<MounCalendar> {
           },
         ),
 
-        // ── 선택된 날 요약 ────────────────────────────────
-        if (_selected != null) ...[
-          const SizedBox(height: AppSpacing.md),
-          _SelectedDaySummary(
-            day: _selected!,
-            data: _dataFor(_selected!),
-          ),
-        ],
       ],
     );
   }
@@ -214,7 +205,6 @@ class _DayCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final isSunday = day.weekday == 7;
-    final isSaturday = day.weekday == 6;
 
     Color dayColor = isCurrentMonth
         ? (isSunday
@@ -297,68 +287,3 @@ class _DayCell extends StatelessWidget {
   }
 }
 
-class _SelectedDaySummary extends StatelessWidget {
-  const _SelectedDaySummary({required this.day, required this.data});
-
-  final DateTime day;
-  final DayData data;
-
-  static final _dateFmt = DateFormat('M월 d일 (E)', 'ko');
-  static final _amtFmt = NumberFormat('#,###');
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AppRadius.chip),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          Text(_dateFmt.format(day), style: tt.labelMedium),
-          const Spacer(),
-          if (data.income > 0) ...[
-            Text('+${_amtFmt.format(data.income)}원',
-                style: tt.labelMedium?.copyWith(
-                  color: AppColors.income,
-                  fontWeight: FontWeight.w600,
-                )),
-            const SizedBox(width: AppSpacing.sm),
-          ],
-          if (data.expense > 0)
-            Text('${_amtFmt.format(data.expense)}원',
-                style: tt.labelMedium?.copyWith(
-                  color: AppColors.expense,
-                  fontWeight: FontWeight.w600,
-                )),
-          if (data.isEmpty)
-            Text('거래 없음',
-                style: tt.labelSmall?.copyWith(color: AppColors.textSecondary)),
-          if (data.hasPending) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.expensePending.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text('청구예정',
-                  style: tt.labelSmall?.copyWith(
-                    color: AppColors.expensePending,
-                    fontSize: 10,
-                  )),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}

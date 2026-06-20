@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/widgets/glass_floating_navbar.dart';
 import '../../shared/widgets/gradient_background.dart';
+import '../transactions/presentation/widgets/add_transaction_sheet.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.navigationShell});
@@ -18,7 +19,7 @@ class MainShell extends StatelessWidget {
 
   void _onTap(BuildContext context, int index) {
     if (index == 2) {
-      // 중앙 + 버튼 → 거래 추가 바텀시트 (추후 구현)
+      AddTransactionSheet.show(context);
       return;
     }
     // + 버튼이 index 2이므로 실제 브랜치 인덱스 조정
