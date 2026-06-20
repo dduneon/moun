@@ -34,7 +34,27 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   DateTime _date = DateTime.now();
   final _nameCtrl = TextEditingController();
   final _memoCtrl = TextEditingController();
+  final _amountFocus = FocusNode();
+  final _nameFocus = FocusNode();
+  final _memoFocus = FocusNode();
   bool _loading = false;
+
+  void _closePickers() {
+    if (_showCategoryPicker || _showDatePicker) {
+      setState(() {
+        _showCategoryPicker = false;
+        _showDatePicker = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    for (final fn in [_amountFocus, _nameFocus, _memoFocus]) {
+      fn.addListener(() { if (fn.hasFocus) _closePickers(); });
+    }
+  }
   bool _showDatePicker = false;
   bool _showCategoryPicker = false;
 
@@ -42,7 +62,26 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   void dispose() {
     _nameCtrl.dispose();
     _memoCtrl.dispose();
+    _amountFocus.dispose();
+    _nameFocus.dispose();
+    _memoFocus.dispose();
     super.dispose();
+  }
+
+  void _openCategory() {
+    _amountFocus.unfocus();
+    setState(() {
+      _showCategoryPicker = !_showCategoryPicker;
+      if (_showCategoryPicker) _showDatePicker = false;
+    });
+  }
+
+  void _openDate() {
+    _amountFocus.unfocus();
+    setState(() {
+      _showDatePicker = !_showDatePicker;
+      if (_showDatePicker) _showCategoryPicker = false;
+    });
   }
 
   static const _incomeNames = {'급여', '부업', '투자', '기타수입'};
@@ -147,6 +186,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
             AppTextField(
               controller: _nameCtrl,
+              focusNode: _nameFocus,
               label: '거래명 (선택)',
               hint: '예: 스타벅스',
             ),
@@ -154,6 +194,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
             AmountTextField(
               label: '금액',
+              focusNode: _amountFocus,
               onChanged: (v) => _amount = v,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -163,8 +204,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               selected: _category,
               isExpense: _isExpense,
               accentColor: accent,
-              onToggle: () =>
-                  setState(() => _showCategoryPicker = !_showCategoryPicker),
+              onToggle: _openCategory,
               onSelected: (c) => setState(() {
                 _category = c;
                 _showCategoryPicker = false;
@@ -178,14 +218,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               date: _date,
               expanded: _showDatePicker,
               accentColor: accent,
-              onToggle: () =>
-                  setState(() => _showDatePicker = !_showDatePicker),
+              onToggle: _openDate,
               onDateChanged: (d) => setState(() => _date = d),
             ),
             const SizedBox(height: AppSpacing.md),
 
             AppTextField(
               controller: _memoCtrl,
+              focusNode: _memoFocus,
               label: '메모 (선택)',
               maxLines: 2,
             ),
@@ -665,6 +705,7 @@ class _CategoryField extends StatelessWidget {
                       onSelected: onSelected,
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.md),
                 ],
               ),
             ),

@@ -54,57 +54,54 @@ class CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5,
-        mainAxisSpacing: AppSpacing.sm,
-        crossAxisSpacing: AppSpacing.sm,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) {
-        final item = items[i];
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: items.map((item) {
         final isSelected = item.id == selectedId;
         return GestureDetector(
           onTap: () => onSelected(item),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? item.color.withValues(alpha: 0.15)
-                      : const Color(0x0A000000),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? item.color : Colors.transparent,
-                    width: 2,
+          child: SizedBox(
+            width: 64,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? item.color.withValues(alpha: 0.15)
+                        : const Color(0x0A000000),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? item.color : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    item.icon,
+                    size: 22,
+                    color: isSelected ? item.color : AppColors.textSecondary,
                   ),
                 ),
-                child: Icon(
-                  item.icon,
-                  size: 22,
-                  color: isSelected ? item.color : AppColors.textSecondary,
+                const SizedBox(height: 4),
+                Text(
+                  item.label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: isSelected ? item.color : AppColors.textSecondary,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isSelected ? item.color : AppColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         );
-      },
+      }).toList(),
     );
   }
 }
