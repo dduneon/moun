@@ -8,11 +8,13 @@ class MonthlyBarData {
     required this.label,
     required this.income,
     required this.expense,
+    this.fixedExpense = 0,
   });
 
   final String label;  // ex) '1월'
   final int income;
   final int expense;
+  final int fixedExpense;
 }
 
 class MonthlyBarChart extends StatelessWidget {
@@ -26,7 +28,7 @@ class MonthlyBarChart extends StatelessWidget {
   double get _maxY {
     final m = data.fold<int>(
       0,
-      (prev, e) => [prev, e.income, e.expense].reduce((a, b) => a > b ? a : b),
+      (prev, e) => [prev, e.income, e.expense + e.fixedExpense].reduce((a, b) => a > b ? a : b),
     );
     final raw = (m * 1.25).ceilToDouble();
     return raw > 0 ? raw : 10000;
@@ -87,12 +89,16 @@ class MonthlyBarChart extends StatelessWidget {
                       ),
                     ),
                     BarChartRodData(
-                      toY: d.expense.toDouble(),
-                      color: AppColors.expense,
+                      toY: (d.expense + d.fixedExpense).toDouble(),
                       width: 10,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(4),
                       ),
+                      rodStackItems: [
+                        BarChartRodStackItem(0, d.expense.toDouble(), AppColors.expense),
+                        BarChartRodStackItem(d.expense.toDouble(), (d.expense + d.fixedExpense).toDouble(), AppColors.expensePending),
+                      ],
+                      color: Colors.transparent,
                     ),
                   ],
                 );
@@ -100,17 +106,31 @@ class MonthlyBarChart extends StatelessWidget {
               barTouchData: BarTouchData(
                 touchTooltipData: BarTouchTooltipData(
                   getTooltipColor: (_) => AppColors.textPrimary.withValues(alpha: 0.85),
-                  getTooltipItem: (group, _, rod, rodIndex) {
-                    final label = rodIndex == 0 ? '수입' : '지출';
-                    final value = rod.toY.toInt();
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final d = data[groupIndex];
+                    if (rodIndex == 0) {
+                      return BarTooltipItem(
+                        '수입\n',
+                        tt.labelSmall!.copyWith(color: Colors.white),
+                        children: [
+                          TextSpan(
+                            text: '${_fmt(d.income)}원',
+                            style: tt.labelMedium?.copyWith(
+                              color: AppColors.income,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
                     return BarTooltipItem(
-                      '$label\n',
+                      '지출 ${_fmt(d.expense)}원  고정 ${_fmt(d.fixedExpense)}원\n',
                       tt.labelSmall!.copyWith(color: Colors.white),
                       children: [
                         TextSpan(
-                          text: '${_fmt(value)}원',
+                          text: '합계 ${_fmt(d.expense + d.fixedExpense)}원',
                           style: tt.labelMedium?.copyWith(
-                            color: rodIndex == 0 ? AppColors.income : AppColors.expense,
+                            color: AppColors.expense,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -129,6 +149,8 @@ class MonthlyBarChart extends StatelessWidget {
             _Legend('수입', AppColors.income),
             const SizedBox(width: AppSpacing.lg),
             _Legend('지출', AppColors.expense),
+            const SizedBox(width: AppSpacing.lg),
+            _Legend('고정지출', AppColors.expensePending),
           ],
         ),
       ],

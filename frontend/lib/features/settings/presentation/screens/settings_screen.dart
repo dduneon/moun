@@ -8,8 +8,10 @@ import '../../../../features/auth/domain/auth_model.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
+import 'app_info_screen.dart';
 import 'fixed_expense_screen.dart';
 import 'fixed_income_screen.dart';
+import 'notification_settings_screen.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -145,7 +147,11 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.notifications_rounded,
                       iconColor: const Color(0xFFFF9F43),
                       label: '알림 설정',
-                      onTap: () {},
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const NotificationSettingsScreen()),
+                      ),
                     ),
                     const Divider(height: 1, indent: 52),
                     _SettingsTile(
@@ -153,7 +159,11 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: AppColors.textSecondary,
                       label: '버전 정보',
                       value: 'v1.0.0',
-                      onTap: () {},
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AppInfoScreen()),
+                      ),
                     ),
                   ],
                 ),
