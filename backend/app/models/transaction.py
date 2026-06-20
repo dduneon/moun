@@ -35,6 +35,7 @@ class Transaction(Base):
     billing_date: Mapped[date]
     spend_cycle_id: Mapped[int] = mapped_column(ForeignKey("budget_cycle.id"))
     billing_cycle_id: Mapped[int] = mapped_column(ForeignKey("budget_cycle.id"))
+    name: Mapped[str | None] = mapped_column(String(200))
     memo: Mapped[str | None] = mapped_column(Text)
     receipt_image_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
