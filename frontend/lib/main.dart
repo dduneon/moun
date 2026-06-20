@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_constants.dart';
 import 'core/network/dio_provider.dart';
 import 'core/router/router.dart';
@@ -11,7 +12,9 @@ import 'features/_design_showcase/showcase_screen.dart';
 // Set to false to use the real auth router
 const _showDesignShowcase = true;
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko');
   runApp(
     ProviderScope(
       overrides: [

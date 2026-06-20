@@ -64,8 +64,11 @@ class _AmountDisplayState extends State<AmountDisplay>
     return AppColors.textPrimary;
   }
 
-  // 절댓값만 표시, 단위 '원' 후치
-  String _format(int value) => '${_fmt.format(value.abs())}원';
+  // 부호 + 절댓값, 단위 '원' 후치
+  String _format(int value) {
+    final sign = value > 0 ? '+' : value < 0 ? '-' : '';
+    return '$sign${_fmt.format(value.abs())}원';
+  }
 
   @override
   Widget build(BuildContext context) {

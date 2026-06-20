@@ -265,7 +265,7 @@ class _DayCell extends StatelessWidget {
                 ),
               if (data.expense > 0)
                 Text(
-                  _fmt(data.expense),
+                  '-${_fmt(data.expense)}',
                   style: tt.labelSmall?.copyWith(
                     color: isSelected ? Colors.white70 : AppColors.expense,
                     fontSize: 9,

@@ -15,6 +15,7 @@ import '../../shared/widgets/glass_floating_navbar.dart';
 import '../../shared/widgets/gradient_background.dart';
 import '../../shared/widgets/moun_calendar.dart';
 import '../../shared/widgets/selection_chip.dart';
+import '../../shared/widgets/transaction_list.dart';
 
 class DesignShowcaseScreen extends StatefulWidget {
   const DesignShowcaseScreen({super.key});
@@ -28,6 +29,71 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
   bool _isExpense = true;
   CategoryItem? _selectedCategory;
   Set<String> _selectedPeriod = {'이번 달'};
+
+  // 날짜별 샘플 거래 목록
+  Map<DateTime, List<TransactionItem>> _sampleTransactions() {
+    final now = DateTime.now();
+    final y = now.year;
+    final m = now.month;
+    return {
+      DateTime(y, m, 1): [
+        TransactionItem(
+          id: 1, name: '월급', amount: 4200000,
+          date: DateTime(y, m, 1, 9, 0),
+          category: const CategoryItem(id: 101, label: '급여', icon: Icons.account_balance_rounded, color: Color(0xFF34C77B)),
+        ),
+      ],
+      DateTime(y, m, 3): [
+        TransactionItem(
+          id: 2, name: '스타벅스 강남점', amount: -6500,
+          date: DateTime(y, m, 3, 8, 42),
+          category: const CategoryItem(id: 7, label: '카페', icon: Icons.local_cafe_rounded, color: Color(0xFF8D6E63)),
+          memo: '아메리카노',
+        ),
+        TransactionItem(
+          id: 3, name: '대중교통', amount: -1450,
+          date: DateTime(y, m, 3, 9, 10),
+          category: const CategoryItem(id: 2, label: '교통', icon: Icons.directions_subway_rounded, color: Color(0xFF7C6FF0)),
+        ),
+        TransactionItem(
+          id: 4, name: '점심 식사', amount: -12000,
+          date: DateTime(y, m, 3, 12, 30),
+          category: const CategoryItem(id: 1, label: '식비', icon: Icons.restaurant_rounded, color: Color(0xFF5B8DEF)),
+        ),
+        TransactionItem(
+          id: 5, name: '편의점', amount: -4800,
+          date: DateTime(y, m, 3, 22, 15),
+          category: const CategoryItem(id: 1, label: '식비', icon: Icons.restaurant_rounded, color: Color(0xFF5B8DEF)),
+        ),
+      ],
+      DateTime(y, m, 12): [
+        TransactionItem(
+          id: 6, name: '넷플릭스', amount: -17000,
+          date: DateTime(y, m, 12, 0, 0),
+          category: const CategoryItem(id: 9, label: '구독', icon: Icons.subscriptions_rounded, color: Color(0xFFFF6B6B)),
+          isPending: true,
+        ),
+        TransactionItem(
+          id: 7, name: '올리브영', amount: -71000,
+          date: DateTime(y, m, 12, 15, 20),
+          category: const CategoryItem(id: 3, label: '쇼핑', icon: Icons.shopping_bag_rounded, color: Color(0xFFFF6B6B)),
+        ),
+      ],
+      DateTime(y, m, 14): [
+        TransactionItem(
+          id: 8, name: '프리랜서 수입', amount: 150000,
+          date: DateTime(y, m, 14, 14, 0),
+          category: const CategoryItem(id: 102, label: '부업', icon: Icons.work_rounded, color: Color(0xFF5B8DEF)),
+        ),
+        TransactionItem(
+          id: 9, name: '저녁 모임', amount: -55000,
+          date: DateTime(y, m, 14, 19, 30),
+          category: const CategoryItem(id: 1, label: '식비', icon: Icons.restaurant_rounded, color: Color(0xFF5B8DEF)),
+          memo: '친구들과 회식',
+        ),
+      ],
+    };
+  }
 
   Map<DateTime, DayData> _sampleCalendarData() {
     final now = DateTime.now();
@@ -311,7 +377,16 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
                 GlassCard(
                   child: MounCalendar(
                     data: _sampleCalendarData(),
-                    onDayTap: (day) {},
+                    onDayTap: (day) {
+                      final txns = _sampleTransactions()[
+                        DateTime(day.year, day.month, day.day)
+                      ] ?? [];
+                      DayTransactionSheet.show(
+                        context,
+                        day: day,
+                        transactions: txns,
+                      );
+                    },
                   ),
                 ).animate(delay: 100.ms).fadeIn(duration: 500.ms),
 
