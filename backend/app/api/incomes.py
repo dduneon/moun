@@ -16,11 +16,10 @@ def _get_or_404(db, user_id: int, income_id: int) -> Income:
 
 
 @router.get("", response_model=list[IncomeResponse])
-def list_incomes(db: DbDep, user: UserDep, cycle_id: int | None = None):
-    q = select(Income).where(Income.user_id == user.id)
-    if cycle_id is not None:
-        q = q.where(Income.budget_cycle_id == cycle_id)
-    return db.scalars(q.order_by(Income.id.desc())).all()
+def list_incomes(db: DbDep, user: UserDep):
+    return db.scalars(
+        select(Income).where(Income.user_id == user.id).order_by(Income.id.desc())
+    ).all()
 
 
 @router.post("", response_model=IncomeResponse, status_code=status.HTTP_201_CREATED)
