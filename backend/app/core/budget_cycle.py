@@ -1,52 +1,74 @@
 from __future__ import annotations
 
 import calendar
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.budget_cycle import BudgetCycle
+from app.models.user_setting import UserSetting
 
-CYCLE_START_DAY = 21  # 매월 21일 시작
+
+def _get_salary_day(db: Session, user_id: int) -> int:
+    setting = db.scalar(select(UserSetting).where(UserSetting.user_id == user_id))
+    return setting.salary_day if setting else 21
 
 
-def _cycle_bounds(ref_date: date) -> tuple[date, date, str]:
-    """ref_date가 속하는 사이클의 start/end/label을 반환."""
-    if ref_date.day >= CYCLE_START_DAY:
-        start = ref_date.replace(day=CYCLE_START_DAY)
-        # 다음달 20일
-        if ref_date.month == 12:
-            end = date(ref_date.year + 1, 1, 20)
+def _cycle_bounds(ref_date: date, salary_day: int) -> tuple[date, date, str]:
+    """
+    ref_date가 속하는 사이클의 (start, end, label)을 반환.
+
+    사이클 구조: salary_day일 ~ 익월 (salary_day - 1)일
+    예) salary_day=21: 6/21 ~ 7/20, salary_day=10: 6/10 ~ 7/9
+    """
+    if ref_date.day >= salary_day:
+        start = ref_date.replace(day=salary_day)
+        if salary_day == 1:
+            # 1일 시작이면 해당 월 말일이 종료일
+            end = ref_date.replace(day=calendar.monthrange(ref_date.year, ref_date.month)[1])
+            end_label_year, end_label_month = ref_date.year, ref_date.month
         else:
-            end = date(ref_date.year, ref_date.month + 1, 20)
+            if ref_date.month == 12:
+                end_year, end_month = ref_date.year + 1, 1
+            else:
+                end_year, end_month = ref_date.year, ref_date.month + 1
+            end_day = min(salary_day - 1, calendar.monthrange(end_year, end_month)[1])
+            end = date(end_year, end_month, end_day)
         label = f"{ref_date.year}년 {ref_date.month}월"
     else:
-        # 이달 1~20일 → 전달 21일 시작
+        # ref_date.day < salary_day → 전달 salary_day 시작
         if ref_date.month == 1:
-            start = date(ref_date.year - 1, 12, CYCLE_START_DAY)
+            start_year, start_month = ref_date.year - 1, 12
         else:
-            start = date(ref_date.year, ref_date.month - 1, CYCLE_START_DAY)
-        end = ref_date.replace(day=20)
-        # label은 "전달 기준" 사이클명
-        prev_month = ref_date.month - 1 or 12
-        prev_year = ref_date.year if ref_date.month > 1 else ref_date.year - 1
-        label = f"{prev_year}년 {prev_month}월"
+            start_year, start_month = ref_date.year, ref_date.month - 1
+        start = date(start_year, start_month, salary_day)
+        if salary_day == 1:
+            end = ref_date.replace(day=calendar.monthrange(ref_date.year, ref_date.month)[1])
+        else:
+            end_day = min(salary_day - 1, calendar.monthrange(ref_date.year, ref_date.month)[1])
+            end = ref_date.replace(day=end_day)
+        label = f"{start_year}년 {start_month}월"
 
     return start, end, label
 
 
-def get_cycle_for_date(db: Session, target: date) -> BudgetCycle:
+def get_cycle_for_date(db: Session, user_id: int, target: date) -> BudgetCycle:
     """target 날짜가 속하는 BudgetCycle 반환. 없으면 생성."""
-    start, end, label = _cycle_bounds(target)
+    salary_day = _get_salary_day(db, user_id)
+    start, end, label = _cycle_bounds(target, salary_day)
 
     cycle = db.scalar(
-        select(BudgetCycle).where(BudgetCycle.start_date == start)
+        select(BudgetCycle).where(
+            BudgetCycle.user_id == user_id,
+            BudgetCycle.start_date == start,
+        )
     )
     if cycle:
         return cycle
 
     cycle = BudgetCycle(
+        user_id=user_id,
         start_date=start,
         end_date=end,
         label=label,
@@ -57,6 +79,6 @@ def get_cycle_for_date(db: Session, target: date) -> BudgetCycle:
     return cycle
 
 
-def get_or_create_current_cycle(db: Session) -> BudgetCycle:
+def get_or_create_current_cycle(db: Session, user_id: int) -> BudgetCycle:
     """오늘 날짜 기준 현재 BudgetCycle 반환."""
-    return get_cycle_for_date(db, date.today())
+    return get_cycle_for_date(db, user_id, date.today())

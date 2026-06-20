@@ -14,17 +14,19 @@ if TYPE_CHECKING:
     from app.models.budget_cycle import BudgetCycle
     from app.models.card import Card
     from app.models.category import Category
+    from app.models.user import User
 
 
 class Transaction(Base):
     __tablename__ = "transaction"
     __table_args__ = (
-        Index("ix_transaction_spend_cycle_id", "spend_cycle_id"),
-        Index("ix_transaction_billing_cycle_id", "billing_cycle_id"),
-        Index("ix_transaction_transaction_date", "transaction_date"),
+        Index("ix_transaction_user_spend_cycle", "user_id", "spend_cycle_id"),
+        Index("ix_transaction_user_billing_cycle", "user_id", "billing_cycle_id"),
+        Index("ix_transaction_user_date", "user_id", "transaction_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2))
     category_id: Mapped[int] = mapped_column(ForeignKey("category.id"))
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
@@ -38,6 +40,7 @@ class Transaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
     card: Mapped[Card | None] = relationship(back_populates="transactions")
     spend_cycle: Mapped[BudgetCycle] = relationship(

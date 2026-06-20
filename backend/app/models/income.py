@@ -12,6 +12,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.budget_cycle import BudgetCycle
+    from app.models.user import User
 
 
 class IncomeType(str, enum.Enum):
@@ -28,6 +29,7 @@ class Income(Base):
     __tablename__ = "income"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     type: Mapped[IncomeType] = mapped_column(Enum(IncomeType))
     name: Mapped[str] = mapped_column(String(100))
     expected_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
@@ -39,4 +41,5 @@ class Income(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
+    user: Mapped[User] = relationship(back_populates="incomes")
     budget_cycle: Mapped[BudgetCycle | None] = relationship(back_populates="incomes")
