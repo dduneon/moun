@@ -83,5 +83,6 @@ def test_available_budget_full_calculation(db: Session, user: User):
     db.flush()
 
     r = get_available_budget(db, user.id, cycle.id)
-    assert r.total_income == Decimal(3_500_000)
+    assert r.confirmed_income == Decimal(3_500_000)
+    assert r.expected_income == Decimal(3_500_000)
     assert r.available == Decimal(3_500_000) - Decimal(17_000) - Decimal(100_000)

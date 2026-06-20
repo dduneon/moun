@@ -27,9 +27,10 @@ class BillingSummary(BaseModel):
 
 class AvailableBudget(BaseModel):
     cycle_id: int
-    total_income: Decimal
+    confirmed_income: Decimal      # actual_amount 확정된 수입 합계
+    expected_income: Decimal       # COALESCE(actual, expected) 예정 포함 합계
     fixed_expense: Decimal
     billed_transactions: Decimal
-    available: Decimal             # total_income - fixed_expense - billed_transactions
+    available: Decimal             # expected_income - fixed_expense - billed_transactions
     spend_summary: SpendSummary
     billing_summary: BillingSummary

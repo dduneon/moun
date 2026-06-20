@@ -25,6 +25,7 @@ from app.schemas.auth import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
+    UserPatch,
     UserResponse,
 )
 
@@ -116,6 +117,15 @@ def logout(body: RefreshRequest, redis: RedisDep):
 @router.get("/me", response_model=UserResponse)
 def me(current_user: UserDep):
     return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+def patch_me(body: UserPatch, db: DbDep, user: UserDep):
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.post("/seed-categories", status_code=status.HTTP_204_NO_CONTENT)

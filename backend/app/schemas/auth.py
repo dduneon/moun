@@ -33,5 +33,10 @@ class UserResponse(BaseModel):
     email: str
     name: str
     is_active: bool
+    salary_day: int = 1
 
     model_config = {"from_attributes": True}
+
+
+class UserPatch(BaseModel):
+    salary_day: int | None = None

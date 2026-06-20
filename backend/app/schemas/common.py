@@ -27,6 +27,7 @@ class BudgetCyclePatch(BaseModel):
 
 class IncomeCreate(BaseModel):
     name: str
+    scheduled_day: Optional[int] = None
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
     received_date: Optional[date] = None
@@ -36,6 +37,7 @@ class IncomeCreate(BaseModel):
 class IncomeResponse(BaseModel):
     id: int
     name: str
+    scheduled_day: Optional[int]
     expected_amount: Optional[Decimal]
     actual_amount: Optional[Decimal]
     received_date: Optional[date]
@@ -46,6 +48,7 @@ class IncomeResponse(BaseModel):
 
 class IncomePatch(BaseModel):
     name: Optional[str] = None
+    scheduled_day: Optional[int] = None
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
     received_date: Optional[date] = None

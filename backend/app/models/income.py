@@ -20,6 +20,7 @@ class Income(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
+    scheduled_day: Mapped[int | None]
     expected_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     actual_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     received_date: Mapped[date | None]

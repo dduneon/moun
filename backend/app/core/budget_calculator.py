@@ -51,16 +51,47 @@ def get_billing_summary(db: Session, user_id: int, cycle_id: int) -> BillingSumm
 
 def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableBudget:
     """
-    가용 예산 = total_income - fixed_expense - billed_transactions
+    가용 예산 = expected_income - fixed_expense - billed_transactions
+    expected_income: COALESCE(actual_amount, expected_amount) 합산 (예정 포함)
+    confirmed_income: actual_amount 확정된 항목만 합산
     """
-    income_row = db.scalar(
+    # 사이클에 묶인 수입 (확정)
+    confirmed_row = db.scalar(
         select(func.coalesce(func.sum(Income.actual_amount), 0))
+        .where(
+            Income.user_id == user_id,
+            Income.budget_cycle_id == cycle_id,
+            Income.actual_amount.is_not(None),
+        )
+    )
+    # 고정 수입 (사이클 없음) 중 actual이 있는 것
+    confirmed_fixed_row = db.scalar(
+        select(func.coalesce(func.sum(Income.actual_amount), 0))
+        .where(
+            Income.user_id == user_id,
+            Income.budget_cycle_id.is_(None),
+            Income.actual_amount.is_not(None),
+        )
+    )
+    confirmed_income = Decimal(str(confirmed_row)) + Decimal(str(confirmed_fixed_row))
+
+    # 사이클에 묶인 수입 (예정 포함 COALESCE)
+    cycle_expected_row = db.scalar(
+        select(func.coalesce(func.sum(func.coalesce(Income.actual_amount, Income.expected_amount)), 0))
         .where(
             Income.user_id == user_id,
             Income.budget_cycle_id == cycle_id,
         )
     )
-    total_income = Decimal(str(income_row))
+    # 고정 수입 (사이클 없음) expected_amount 합산
+    fixed_expected_row = db.scalar(
+        select(func.coalesce(func.sum(func.coalesce(Income.actual_amount, Income.expected_amount)), 0))
+        .where(
+            Income.user_id == user_id,
+            Income.budget_cycle_id.is_(None),
+        )
+    )
+    expected_income = Decimal(str(cycle_expected_row)) + Decimal(str(fixed_expected_row))
 
     fixed_row = db.scalar(
         select(func.coalesce(func.sum(FixedExpense.amount), 0))
@@ -71,11 +102,12 @@ def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableB
     billing_summary = get_billing_summary(db, user_id, cycle_id)
     billed_transactions = billing_summary.total_billing
 
-    available = total_income - fixed_expense - billed_transactions
+    available = expected_income - fixed_expense - billed_transactions
 
     return AvailableBudget(
         cycle_id=cycle_id,
-        total_income=total_income,
+        confirmed_income=confirmed_income,
+        expected_income=expected_income,
         fixed_expense=fixed_expense,
         billed_transactions=billed_transactions,
         available=available,

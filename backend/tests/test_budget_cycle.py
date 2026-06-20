@@ -16,7 +16,7 @@ from app.models.user import User
     (date(2025, 12, 31), date(2025, 12, 1), date(2025, 12, 31), "2025년 12월"),
 ])
 def test_cycle_bounds(ref, exp_start, exp_end, exp_label):
-    start, end, label = _cycle_bounds(ref)
+    start, end, label = _cycle_bounds(ref, salary_day=1)
     assert start == exp_start
     assert end == exp_end
     assert label == exp_label
