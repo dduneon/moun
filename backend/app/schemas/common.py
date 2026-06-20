@@ -117,6 +117,7 @@ class CardPatch(BaseModel):
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):
+    name: Optional[str] = None
     amount: Decimal
     category_id: int
     payment_method: PaymentMethod
@@ -127,6 +128,7 @@ class TransactionCreate(BaseModel):
 
 class TransactionResponse(BaseModel):
     id: int
+    name: Optional[str]
     amount: Decimal
     category_id: int
     payment_method: PaymentMethod
@@ -142,6 +144,22 @@ class TransactionResponse(BaseModel):
 
 
 class TransactionPatch(BaseModel):
+    name: Optional[str] = None
     amount: Optional[Decimal] = None
     category_id: Optional[int] = None
     memo: Optional[str] = None
+
+
+# ── UserSetting ───────────────────────────────────────────────────────────────
+
+class UserSettingResponse(BaseModel):
+    salary_day: int
+    payday_adjustment: str
+    holiday_country: str
+    model_config = {"from_attributes": True}
+
+
+class UserSettingPatch(BaseModel):
+    salary_day: Optional[int] = None
+    payday_adjustment: Optional[str] = None
+    holiday_country: Optional[str] = None
