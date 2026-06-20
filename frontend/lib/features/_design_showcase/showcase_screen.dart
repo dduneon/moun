@@ -13,6 +13,7 @@ import '../../shared/widgets/charts/spending_line_chart.dart';
 import '../../shared/widgets/glass_card.dart';
 import '../../shared/widgets/glass_floating_navbar.dart';
 import '../../shared/widgets/gradient_background.dart';
+import '../../shared/widgets/moun_calendar.dart';
 import '../../shared/widgets/selection_chip.dart';
 
 class DesignShowcaseScreen extends StatefulWidget {
@@ -27,6 +28,26 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
   bool _isExpense = true;
   CategoryItem? _selectedCategory;
   Set<String> _selectedPeriod = {'이번 달'};
+
+  Map<DateTime, DayData> _sampleCalendarData() {
+    final now = DateTime.now();
+    final y = now.year;
+    final m = now.month;
+    return {
+      DateTime(y, m, 1): const DayData(income: 4200000),
+      DateTime(y, m, 3): const DayData(expense: 65000),
+      DateTime(y, m, 5): const DayData(expense: 142000),
+      DateTime(y, m, 7): const DayData(expense: 38000),
+      DateTime(y, m, 10): const DayData(expense: 220000),
+      DateTime(y, m, 12): const DayData(expense: 88000, hasPending: true),
+      DateTime(y, m, 14): const DayData(income: 150000, expense: 55000),
+      DateTime(y, m, 16): const DayData(hasPending: true),
+      DateTime(y, m, 18): const DayData(expense: 310000),
+      DateTime(y, m, 20): const DayData(expense: 45000),
+      DateTime(y, m, 21): const DayData(income: 4200000),
+      DateTime(y, m, 23): const DayData(expense: 120000),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -281,6 +302,18 @@ class _DesignShowcaseScreenState extends State<DesignShowcaseScreen> {
                     ],
                   ),
                 ).animate(delay: 300.ms).fadeIn(duration: 500.ms),
+
+                const SizedBox(height: AppSpacing.xl),
+
+                // ── Calendar ────────────────────────────────────────────
+                _SectionLabel('달력'),
+                const SizedBox(height: AppSpacing.md),
+                GlassCard(
+                  child: MounCalendar(
+                    data: _sampleCalendarData(),
+                    onDayTap: (day) {},
+                  ),
+                ).animate(delay: 100.ms).fadeIn(duration: 500.ms),
 
                 const SizedBox(height: AppSpacing.xl),
 
