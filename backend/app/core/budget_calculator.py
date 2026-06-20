@@ -14,17 +14,18 @@ from app.schemas.budget import AvailableBudget, BillingSummary, CategoryAmount, 
 
 
 def _category_breakdown(rows: list[tuple]) -> list[CategoryAmount]:
-    return [CategoryAmount(category_id=cid, category_name=name, total=total) for cid, name, total in rows]
+    return [CategoryAmount(category_id=cid, category_name=name, total=tot) for cid, name, tot in rows]
 
 
 def get_spend_summary(db: Session, user_id: int, cycle_id: int) -> SpendSummary:
-    """spend_cycle 기준: 거래일이 이 사이클에 속하는 소비 합계 (카테고리별)."""
+    """spend_cycle 기준: 거래일이 이 사이클에 속하는 지출 합계 (카테고리별)."""
     rows = db.execute(
         select(Category.id, Category.name, func.sum(Transaction.amount))
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.spend_cycle_id == cycle_id,
+            Transaction.amount < 0,
         )
         .group_by(Category.id, Category.name)
     ).all()
@@ -34,13 +35,14 @@ def get_spend_summary(db: Session, user_id: int, cycle_id: int) -> SpendSummary:
 
 
 def get_billing_summary(db: Session, user_id: int, cycle_id: int) -> BillingSummary:
-    """billing_cycle 기준: 청구일이 이 사이클에 속하는 소비 합계 (카테고리별)."""
+    """billing_cycle 기준: 청구일이 이 사이클에 속하는 지출 합계 (카테고리별)."""
     rows = db.execute(
         select(Category.id, Category.name, func.sum(Transaction.amount))
         .join(Category, Transaction.category_id == Category.id)
         .where(
             Transaction.user_id == user_id,
             Transaction.billing_cycle_id == cycle_id,
+            Transaction.amount < 0,
         )
         .group_by(Category.id, Category.name)
     ).all()
@@ -51,9 +53,8 @@ def get_billing_summary(db: Session, user_id: int, cycle_id: int) -> BillingSumm
 
 def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableBudget:
     """
-    가용 예산 = expected_income - fixed_expense - billed_transactions
-    expected_income: COALESCE(actual_amount, expected_amount) 합산 (예정 포함)
-    confirmed_income: actual_amount 확정된 항목만 합산
+    가용 예산 = expected_income - fixed_expense - spent_transactions
+    거래일(transaction_date) 기준 사이클 내 지출만 차감.
     """
     # 사이클에 묶인 수입 (확정)
     confirmed_row = db.scalar(
@@ -64,7 +65,6 @@ def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableB
             Income.actual_amount.is_not(None),
         )
     )
-    # 고정 수입 (사이클 없음) 중 actual이 있는 것
     confirmed_fixed_row = db.scalar(
         select(func.coalesce(func.sum(Income.actual_amount), 0))
         .where(
@@ -83,7 +83,6 @@ def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableB
             Income.budget_cycle_id == cycle_id,
         )
     )
-    # 고정 수입 (사이클 없음) expected_amount 합산
     fixed_expected_row = db.scalar(
         select(func.coalesce(func.sum(func.coalesce(Income.actual_amount, Income.expected_amount)), 0))
         .where(
@@ -99,18 +98,17 @@ def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableB
     )
     fixed_expense = Decimal(str(fixed_row))
 
-    billing_summary = get_billing_summary(db, user_id, cycle_id)
-    billed_transactions = billing_summary.total_billing
-
-    available = expected_income - fixed_expense - billed_transactions
+    spend_summary = get_spend_summary(db, user_id, cycle_id)
+    # spend_summary.total_spend는 음수이므로 더하면 차감
+    available = expected_income - fixed_expense + spend_summary.total_spend
 
     return AvailableBudget(
         cycle_id=cycle_id,
         confirmed_income=confirmed_income,
         expected_income=expected_income,
         fixed_expense=fixed_expense,
-        billed_transactions=billed_transactions,
+        billed_transactions=spend_summary.total_spend,
         available=available,
-        spend_summary=get_spend_summary(db, user_id, cycle_id),
-        billing_summary=billing_summary,
+        spend_summary=spend_summary,
+        billing_summary=get_billing_summary(db, user_id, cycle_id),
     )

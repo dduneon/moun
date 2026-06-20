@@ -48,12 +48,13 @@ def _cycle_bounds(ref_date: date, salary_day: int) -> tuple[date, date, str]:
 
 
 def get_cycle_for_date(db: Session, user_id: int, target: date) -> BudgetCycle:
-    """target 날짜가 속하는 BudgetCycle 반환. 없으면 생성."""
+    """target 날짜가 속하는 BudgetCycle 반환. 없으면 현재 salary_day 기준으로 생성."""
     user = db.scalar(select(User).where(User.id == user_id))
     salary_day = user.salary_day if user else 1
 
     start, end, label = _cycle_bounds(target, salary_day)
 
+    # 정확히 같은 start_date 사이클 먼저 탐색
     cycle = db.scalar(
         select(BudgetCycle).where(
             BudgetCycle.user_id == user_id,

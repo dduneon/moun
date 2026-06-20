@@ -25,13 +25,11 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   DateTime? _selectedDay;
-  late DateTime _viewMonth;
+  DateTime _viewMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _viewMonth = DateTime(now.year, now.month);
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>

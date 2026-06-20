@@ -36,6 +36,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   final _memoCtrl = TextEditingController();
   bool _loading = false;
   bool _showDatePicker = false;
+  bool _showCategoryPicker = false;
 
   @override
   void dispose() {
@@ -144,47 +145,32 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
+            AppTextField(
+              controller: _nameCtrl,
+              label: '거래명 (선택)',
+              hint: '예: 스타벅스',
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
             AmountTextField(
               label: '금액',
               onChanged: (v) => _amount = v,
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            Text('카테고리',
-                style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-            const SizedBox(height: AppSpacing.sm),
-            ref.watch(categoryItemsProvider).when(
-              data: (all) {
-                final items = _filterCategories(all);
-                if (items.isEmpty) {
-                  return Text('카테고리를 불러오는 중...',
-                      style: tt.bodyMedium
-                          ?.copyWith(color: AppColors.textSecondary));
-                }
-                return CategoryGrid(
-                  items: items,
-                  selectedId: _category?.id,
-                  onSelected: (c) => setState(() => _category = c),
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (_, __) => CategoryGrid(
-                items: _isExpense
-                    ? defaultExpenseCategories
-                    : defaultIncomeCategories,
-                selectedId: _category?.id,
-                onSelected: (c) => setState(() => _category = c),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            AppTextField(
-              controller: _nameCtrl,
-              label: '거래명 (선택)',
-              hint: '예: 스타벅스',
+            _CategoryField(
+              expanded: _showCategoryPicker,
+              selected: _category,
+              isExpense: _isExpense,
+              accentColor: accent,
+              onToggle: () =>
+                  setState(() => _showCategoryPicker = !_showCategoryPicker),
+              onSelected: (c) => setState(() {
+                _category = c;
+                _showCategoryPicker = false;
+              }),
+              categoryItems: ref.watch(categoryItemsProvider),
+              filterCategories: _filterCategories,
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -557,6 +543,133 @@ class _AccentButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+// ── 접이식 카테고리 선택기 ──────────────────────────────────────────
+
+class _CategoryField extends StatelessWidget {
+  const _CategoryField({
+    required this.expanded,
+    required this.selected,
+    required this.isExpense,
+    required this.accentColor,
+    required this.onToggle,
+    required this.onSelected,
+    required this.categoryItems,
+    required this.filterCategories,
+  });
+
+  final bool expanded;
+  final CategoryItem? selected;
+  final bool isExpense;
+  final Color accentColor;
+  final VoidCallback onToggle;
+  final ValueChanged<CategoryItem> onSelected;
+  final AsyncValue<List<CategoryItem>> categoryItems;
+  final List<CategoryItem> Function(List<CategoryItem>) filterCategories;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final label = selected?.label ?? '카테고리 선택';
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceGlass,
+        borderRadius: AppRadius.buttonBorderRadius,
+        border: Border.all(
+          color: expanded ? accentColor : AppColors.divider,
+          width: expanded ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.category_rounded,
+                      size: 18,
+                      color: expanded ? accentColor : AppColors.textSecondary),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(label,
+                      style: tt.bodyLarge?.copyWith(
+                        color: selected != null
+                            ? (expanded ? accentColor : null)
+                            : AppColors.textSecondary,
+                        fontWeight:
+                            expanded ? FontWeight.w600 : FontWeight.normal,
+                      )),
+                  const Spacer(),
+                  AnimatedRotation(
+                    turns: expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 250),
+                    child: const Icon(Icons.expand_more_rounded,
+                        size: 20, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, 0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: AppSpacing.md),
+                  categoryItems.when(
+                    data: (all) {
+                      final items = filterCategories(all);
+                      if (items.isEmpty) {
+                        return Text('카테고리를 불러오는 중...',
+                            style: tt.bodyMedium
+                                ?.copyWith(color: AppColors.textSecondary));
+                      }
+                      return CategoryGrid(
+                        items: items,
+                        selectedId: selected?.id,
+                        onSelected: onSelected,
+                      );
+                    },
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (_, e) => CategoryGrid(
+                      items: isExpense
+                          ? defaultExpenseCategories
+                          : defaultIncomeCategories,
+                      selectedId: selected?.id,
+                      onSelected: onSelected,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

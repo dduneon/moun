@@ -103,7 +103,7 @@ class _AppTextFieldState extends State<AppTextField> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.buttonBorderRadius,
-          borderSide: BorderSide(color: AppColors.divider.withValues(alpha: 2.0)),
+          borderSide: const BorderSide(color: AppColors.divider),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.buttonBorderRadius,
