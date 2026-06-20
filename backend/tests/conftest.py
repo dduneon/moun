@@ -11,7 +11,6 @@ from app.db.redis import get_redis
 from app.core.deps import get_db
 from app.main import app as fastapi_app
 from app.models.user import User
-from app.models.user_setting import UserSetting
 
 
 # ── Unit-test fixtures (no HTTP) ──────────────────────────────────────────────
@@ -33,20 +32,6 @@ def db():
 def user(db: Session) -> User:
     u = User(email="test@example.com", hashed_password="x", name="테스터")
     db.add(u)
-    db.flush()
-    setting = UserSetting(user_id=u.id, salary_day=21, payday_adjustment="prev_business", holiday_country="KR")
-    db.add(setting)
-    db.flush()
-    return u
-
-
-@pytest.fixture
-def user_salary10(db: Session) -> User:
-    u = User(email="test10@example.com", hashed_password="x", name="테스터10")
-    db.add(u)
-    db.flush()
-    setting = UserSetting(user_id=u.id, salary_day=10, payday_adjustment="prev_business", holiday_country="KR")
-    db.add(setting)
     db.flush()
     return u
 

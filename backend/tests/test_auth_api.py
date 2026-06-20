@@ -178,7 +178,7 @@ def test_income_isolation_404(client: TestClient):
     tokens_a, tokens_b = _setup_two_users(client)
 
     r = client.post("/incomes",
-                    json={"type": "salary", "name": "본급여", "scheduled_day": 21},
+                    json={"name": "월급"},
                     headers=auth_header(tokens_a["access_token"]))
     income_id = r.json()["id"]
 

@@ -62,7 +62,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   children: [
                     Expanded(child: _SummaryCard(
                       label: '총 수입',
-                      amount: (b.salary + b.extraIncome).round(),
+                      amount: (b.totalIncome).round(),
                       color: AppColors.income,
                       icon: Icons.arrow_circle_up_rounded,
                     )),
@@ -76,7 +76,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(child: _SummaryCard(
                       label: '순수익',
-                      amount: (b.salary + b.extraIncome - b.totalSpent).round(),
+                      amount: (b.totalIncome - b.totalSpent).round(),
                       color: AppColors.primary,
                       icon: Icons.savings_rounded,
                     )),
@@ -160,7 +160,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       data: (b) => Row(children: [
                         Text('지출 추이', style: tt.titleLarge),
                         const Spacer(),
-                        Text('예산 ${_fmtWon((b.salary + b.extraIncome).round())}',
+                        Text('예산 ${_fmtWon((b.totalIncome).round())}',
                             style: tt.labelSmall?.copyWith(
                               color: AppColors.textSecondary,
                             )),
@@ -171,7 +171,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     budgetAsync.when(
                       data: (b) => SpendingLineChart(
-                        budgetLimit: (b.salary + b.extraIncome).round(),
+                        budgetLimit: (b.totalIncome).round(),
                         points: _buildSpendingPoints(b.spendSummary),
                       ),
                       loading: () => const SizedBox(height: 160),

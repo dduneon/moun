@@ -118,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Text('수입', style: tt.labelSmall),
                             const Spacer(),
                             AmountDisplay(
-                              amount: (budget.salary + budget.extraIncome).round(),
+                              amount: (budget.totalIncome).round(),
                               size: AmountSize.small,
                             ),
                           ],
@@ -267,7 +267,7 @@ class _BudgetCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _BudgetProgressBar(
             spent: budget.totalSpent.round(),
-            total: (budget.salary + budget.extraIncome).round(),
+            total: (budget.totalIncome).round(),
           ),
         ],
       ),

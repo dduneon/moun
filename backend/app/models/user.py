@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from app.models.fixed_expense import FixedExpense
     from app.models.income import Income
     from app.models.transaction import Transaction
-    from app.models.user_setting import UserSetting
 
 
 class User(Base):
@@ -29,7 +28,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    setting: Mapped[UserSetting | None] = relationship(back_populates="user", uselist=False)
     budget_cycles: Mapped[list[BudgetCycle]] = relationship(back_populates="user")
     incomes: Mapped[list[Income]] = relationship(back_populates="user")
     fixed_expenses: Mapped[list[FixedExpense]] = relationship(back_populates="user")

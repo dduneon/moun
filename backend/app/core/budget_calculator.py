@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.budget_cycle import BudgetCycle
 from app.models.category import Category
 from app.models.fixed_expense import FixedExpense
-from app.models.income import Income, IncomeType
+from app.models.income import Income
 from app.models.transaction import Transaction
 from app.schemas.budget import AvailableBudget, BillingSummary, CategoryAmount, SpendSummary
 
@@ -51,25 +51,16 @@ def get_billing_summary(db: Session, user_id: int, cycle_id: int) -> BillingSumm
 
 def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableBudget:
     """
-    가용 예산 = salary + extra_income - fixed_expense - billed_transactions
+    가용 예산 = total_income - fixed_expense - billed_transactions
     """
-    cycle = db.scalar(
-        select(BudgetCycle).where(BudgetCycle.id == cycle_id, BudgetCycle.user_id == user_id)
-    )
-    if cycle is None:
-        raise ValueError(f"BudgetCycle {cycle_id} not found")
-
-    salary = cycle.salary_actual if cycle.salary_actual is not None else cycle.salary_expected
-
-    extra_row = db.scalar(
+    income_row = db.scalar(
         select(func.coalesce(func.sum(Income.actual_amount), 0))
         .where(
             Income.user_id == user_id,
             Income.budget_cycle_id == cycle_id,
-            Income.type == IncomeType.extra,
         )
     )
-    extra_income = Decimal(str(extra_row))
+    total_income = Decimal(str(income_row))
 
     fixed_row = db.scalar(
         select(func.coalesce(func.sum(FixedExpense.amount), 0))
@@ -80,12 +71,11 @@ def get_available_budget(db: Session, user_id: int, cycle_id: int) -> AvailableB
     billing_summary = get_billing_summary(db, user_id, cycle_id)
     billed_transactions = billing_summary.total_billing
 
-    available = salary + extra_income - fixed_expense - billed_transactions
+    available = total_income - fixed_expense - billed_transactions
 
     return AvailableBudget(
         cycle_id=cycle_id,
-        salary=salary,
-        extra_income=extra_income,
+        total_income=total_income,
         fixed_expense=fixed_expense,
         billed_transactions=billed_transactions,
         available=available,

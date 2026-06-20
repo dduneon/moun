@@ -7,28 +7,18 @@ class BudgetCycle {
     required this.startDate,
     required this.endDate,
     required this.label,
-    required this.salaryExpected,
-    this.salaryActual,
   });
 
   final int id;
   final DateTime startDate;
   final DateTime endDate;
   final String label;
-  final double salaryExpected;
-  final double? salaryActual;
-
-  double get salary => salaryActual ?? salaryExpected;
 
   factory BudgetCycle.fromJson(Map<String, dynamic> json) => BudgetCycle(
         id: json['id'] as int,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
         label: json['label'] as String,
-        salaryExpected: double.parse(json['salary_expected'].toString()),
-        salaryActual: json['salary_actual'] != null
-            ? double.parse(json['salary_actual'].toString())
-            : null,
       );
 }
 
@@ -97,8 +87,7 @@ class BillingSummary {
 class AvailableBudget {
   const AvailableBudget({
     required this.cycleId,
-    required this.salary,
-    required this.extraIncome,
+    required this.totalIncome,
     required this.fixedExpense,
     required this.billedTransactions,
     required this.available,
@@ -107,21 +96,18 @@ class AvailableBudget {
   });
 
   final int cycleId;
-  final double salary;
-  final double extraIncome;
+  final double totalIncome;
   final double fixedExpense;
   final double billedTransactions;
   final double available;
   final SpendSummary spendSummary;
   final BillingSummary billingSummary;
 
-  double get totalIncome => salary + extraIncome;
   double get totalSpent => spendSummary.totalSpend.abs();
 
   factory AvailableBudget.fromJson(Map<String, dynamic> json) => AvailableBudget(
         cycleId: json['cycle_id'] as int,
-        salary: double.parse(json['salary'].toString()),
-        extraIncome: double.parse(json['extra_income'].toString()),
+        totalIncome: double.parse(json['total_income'].toString()),
         fixedExpense: double.parse(json['fixed_expense'].toString()),
         billedTransactions: double.parse(json['billed_transactions'].toString()),
         available: double.parse(json['available'].toString()),

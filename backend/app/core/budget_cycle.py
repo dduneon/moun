@@ -36,7 +36,6 @@ def get_cycle_for_date(db: Session, user_id: int, target: date) -> BudgetCycle:
         start_date=start,
         end_date=end,
         label=label,
-        salary_expected=0,
     )
     db.add(cycle)
     db.flush()

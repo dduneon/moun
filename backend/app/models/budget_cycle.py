@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,8 +22,6 @@ class BudgetCycle(Base):
     start_date: Mapped[date]
     end_date: Mapped[date]
     label: Mapped[str] = mapped_column(String(50))
-    salary_expected: Mapped[Decimal] = mapped_column(Numeric(15, 2))
-    salary_actual: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

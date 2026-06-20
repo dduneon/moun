@@ -27,10 +27,9 @@ class BillingSummary(BaseModel):
 
 class AvailableBudget(BaseModel):
     cycle_id: int
-    salary: Decimal                # salary_actual or salary_expected
-    extra_income: Decimal
+    total_income: Decimal
     fixed_expense: Decimal
     billed_transactions: Decimal
-    available: Decimal             # salary + extra_income - fixed_expense - billed_transactions
-    spend_summary: SpendSummary    # 참고용: 거래일 기준 소비 현황
-    billing_summary: BillingSummary  # 실질 차감 기준 소비 현황
+    available: Decimal             # total_income - fixed_expense - billed_transactions
+    spend_summary: SpendSummary
+    billing_summary: BillingSummary

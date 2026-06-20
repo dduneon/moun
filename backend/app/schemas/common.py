@@ -6,7 +6,6 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.models.fixed_expense import PaymentMethod
-from app.models.income import IncomeStatus, IncomeType
 
 
 # ── BudgetCycle ───────────────────────────────────────────────────────────────
@@ -16,40 +15,30 @@ class BudgetCycleResponse(BaseModel):
     start_date: date
     end_date: date
     label: str
-    salary_expected: Decimal
-    salary_actual: Optional[Decimal]
     created_at: datetime
     model_config = {"from_attributes": True}
 
 
 class BudgetCyclePatch(BaseModel):
-    salary_expected: Optional[Decimal] = None
-    salary_actual: Optional[Decimal] = None
     label: Optional[str] = None
 
 
 # ── Income ────────────────────────────────────────────────────────────────────
 
 class IncomeCreate(BaseModel):
-    type: IncomeType
     name: str
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
-    scheduled_day: Optional[int] = None
     received_date: Optional[date] = None
-    status: IncomeStatus = IncomeStatus.pending
     budget_cycle_id: Optional[int] = None
 
 
 class IncomeResponse(BaseModel):
     id: int
-    type: IncomeType
     name: str
     expected_amount: Optional[Decimal]
     actual_amount: Optional[Decimal]
-    scheduled_day: Optional[int]
     received_date: Optional[date]
-    status: IncomeStatus
     budget_cycle_id: Optional[int]
     created_at: datetime
     model_config = {"from_attributes": True}
@@ -59,9 +48,7 @@ class IncomePatch(BaseModel):
     name: Optional[str] = None
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
-    scheduled_day: Optional[int] = None
     received_date: Optional[date] = None
-    status: Optional[IncomeStatus] = None
     budget_cycle_id: Optional[int] = None
 
 
@@ -150,16 +137,3 @@ class TransactionPatch(BaseModel):
     memo: Optional[str] = None
 
 
-# ── UserSetting ───────────────────────────────────────────────────────────────
-
-class UserSettingResponse(BaseModel):
-    salary_day: int
-    payday_adjustment: str
-    holiday_country: str
-    model_config = {"from_attributes": True}
-
-
-class UserSettingPatch(BaseModel):
-    salary_day: Optional[int] = None
-    payday_adjustment: Optional[str] = None
-    holiday_country: Optional[str] = None

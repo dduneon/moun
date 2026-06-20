@@ -22,21 +22,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageCtrl = PageController();
   int _page = 0;
 
-  // ── 스텝 1: 예산 시작일
-  int _salaryDay = 21;
-  bool _noSalary = false;
-  String _paydayAdjustment = 'prev_business';
-
-  // ── 스텝 2: 고정 수입
+  // ── 스텝 1: 고정 수입
   final List<_IncomeEntry> _incomes = [];
 
-  // ── 스텝 3: 고정 지출
+  // ── 스텝 2: 고정 지출
   final List<_ExpenseEntry> _expenses = [];
 
   bool _saving = false;
 
   void _next() {
-    if (_page < 2) {
+    if (_page < 1) {
       _pageCtrl.animateToPage(_page + 1,
           duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
       setState(() => _page++);
@@ -49,23 +44,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _saving = true);
     final repo = ref.read(settingsRepositoryProvider);
     try {
-      // 1) 설정 저장
-      await repo.patchSetting({
-        'salary_day': _noSalary ? 0 : _salaryDay,
-        'payday_adjustment': _paydayAdjustment,
-      });
-
-      // 2) 고정 수입 저장
+      // 1) 고정 수입 저장
       for (final e in _incomes) {
         await repo.createIncome(
           name: e.name,
           amount: e.amount.toDouble(),
-          type: e.type,
-          scheduledDay: e.day,
         );
       }
 
-      // 3) 고정 지출 저장
+      // 2) 고정 지출 저장
       for (final e in _expenses) {
         await repo.createFixedExpense(
           name: e.name,
@@ -94,7 +81,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final steps = ['예산 시작일', '고정 수입', '고정 지출'];
+    final steps = ['고정 수입', '고정 지출'];
 
     return Scaffold(
       body: SafeArea(
@@ -140,15 +127,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 controller: _pageCtrl,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  _Step1(
-                    salaryDay: _salaryDay,
-                    noSalary: _noSalary,
-                    paydayAdjustment: _paydayAdjustment,
-                    onDayChanged: (d) => setState(() => _salaryDay = d),
-                    onNoSalaryChanged: (v) => setState(() => _noSalary = v),
-                    onAdjustmentChanged: (v) =>
-                        setState(() => _paydayAdjustment = v),
-                  ),
                   _Step2(
                     incomes: _incomes,
                     onChanged: () => setState(() {}),
@@ -208,13 +186,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
-                              _page < 2 ? '다음' : '시작하기',
+                              _page < 1 ? '다음' : '시작하기',
                               style: tt.labelLarge
                                   ?.copyWith(color: Colors.white),
                             ),
                     ),
                   ),
-                  if (_page < 2) ...[
+                  if (_page < 1) ...[
                     const SizedBox(width: AppSpacing.sm),
                     TextButton(
                       onPressed: _saving ? null : _next,
@@ -235,223 +213,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 // ── Step 1: 월급날 설정 ──────────────────────────────────────
 
-class _Step1 extends StatelessWidget {
-  const _Step1({
-    required this.salaryDay,
-    required this.noSalary,
-    required this.paydayAdjustment,
-    required this.onDayChanged,
-    required this.onNoSalaryChanged,
-    required this.onAdjustmentChanged,
-  });
-
-  final int salaryDay;
-  final bool noSalary;
-  final String paydayAdjustment;
-  final ValueChanged<int> onDayChanged;
-  final ValueChanged<bool> onNoSalaryChanged;
-  final ValueChanged<String> onAdjustmentChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final tt = Theme.of(context).textTheme;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: AppSpacing.md),
-          Text('월급날이 언제예요?',
-              style: tt.headlineMedium?.copyWith(height: 1.3))
-              .animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0),
-          const SizedBox(height: AppSpacing.sm),
-          Text('예산 기간은 매월 1일~말일로 자동 계산돼요.',
-              style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary))
-              .animate().fadeIn(delay: 200.ms),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // 예산 기간 안내 배너
-          Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.07),
-              borderRadius: AppRadius.buttonBorderRadius,
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_month_rounded,
-                    size: 14, color: AppColors.primary),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  '예산 기간: 매월 1일 ~ 말일 (고정)',
-                  style: tt.labelMedium?.copyWith(color: AppColors.primary),
-                ),
-              ],
-            ),
-          ).animate().fadeIn(delay: 220.ms),
-
-          const SizedBox(height: AppSpacing.xl),
-
-          // 월급 없음 옵션
-          GestureDetector(
-            onTap: () => onNoSalaryChanged(!noSalary),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: noSalary
-                    ? AppColors.primary.withValues(alpha: 0.08)
-                    : const Color(0x08000000),
-                borderRadius: AppRadius.buttonBorderRadius,
-                border: Border.all(
-                    color: noSalary ? AppColors.primary : AppColors.divider),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    noSalary ? Icons.check_circle_rounded : Icons.circle_outlined,
-                    size: 20,
-                    color: noSalary ? AppColors.primary : AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('정해진 월급날이 없어요',
-                            style: tt.bodyMedium?.copyWith(
-                              color: noSalary ? AppColors.primary : null,
-                              fontWeight: noSalary ? FontWeight.w600 : FontWeight.w400,
-                            )),
-                        Text('프리랜서, 사업자, 학생 등',
-                            style: tt.labelSmall?.copyWith(
-                                color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ).animate().fadeIn(delay: 250.ms),
-
-          if (!noSalary) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Text('월급 수령일',
-                style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-            const SizedBox(height: AppSpacing.sm),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: AppSpacing.sm,
-                crossAxisSpacing: AppSpacing.sm,
-                childAspectRatio: 1,
-              ),
-              itemCount: 28,
-              itemBuilder: (_, i) {
-                final day = i + 1;
-                final isSel = day == salaryDay;
-                return GestureDetector(
-                  onTap: () => onDayChanged(day),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    decoration: BoxDecoration(
-                      color: isSel
-                          ? AppColors.primary
-                          : AppColors.primary.withValues(alpha: 0.06),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$day',
-                      style: tt.bodyMedium?.copyWith(
-                        color: isSel ? Colors.white : AppColors.textPrimary,
-                        fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ).animate().fadeIn(delay: 300.ms),
-
-            const SizedBox(height: AppSpacing.lg),
-            Text('주말/공휴일 지급',
-                style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
-            const SizedBox(height: AppSpacing.sm),
-            ...[
-              ('prev_business', '이전 영업일', '주말이면 금요일에 먼저 지급'),
-              ('next_business', '다음 영업일', '주말이면 월요일에 지급'),
-              ('exact', '당일 그대로', '날짜 변경 없이 처리'),
-            ].map((opt) {
-              final (val, label, desc) = opt;
-              final isSel = paydayAdjustment == val;
-              return GestureDetector(
-                onTap: () => onAdjustmentChanged(val),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-                  decoration: BoxDecoration(
-                    color: isSel
-                        ? AppColors.primary.withValues(alpha: 0.07)
-                        : const Color(0x07000000),
-                    borderRadius: AppRadius.buttonBorderRadius,
-                    border: Border.all(
-                        color: isSel ? AppColors.primary : AppColors.divider),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(label,
-                                style: tt.bodyMedium?.copyWith(
-                                  color: isSel ? AppColors.primary : null,
-                                  fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
-                                )),
-                            Text(desc,
-                                style: tt.labelSmall?.copyWith(
-                                    color: AppColors.textSecondary)),
-                          ],
-                        ),
-                      ),
-                      if (isSel)
-                        const Icon(Icons.check_rounded,
-                            size: 16, color: AppColors.primary),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Step 2: 고정 수입 ──────────────────────────────────────
+// ── Step 1: 고정 수입 ──────────────────────────────────────
 
 class _IncomeEntry {
-  _IncomeEntry({
-    required this.name,
-    required this.amount,
-    required this.type,
-    this.day,
-  });
+  _IncomeEntry({required this.name, required this.amount});
   String name;
   int amount;
-  String type; // 'salary' | 'extra'
-  int? day;
 }
 
 class _Step2 extends StatefulWidget {
@@ -520,12 +287,10 @@ class _Step2State extends State<_Step2> {
             ...widget.incomes.asMap().entries.map((entry) {
               final e = entry.value;
               return _EntryCard(
-                icon: e.type == 'salary'
-                    ? Icons.account_balance_rounded
-                    : Icons.work_rounded,
+                icon: Icons.trending_up_rounded,
                 iconColor: AppColors.income,
                 title: e.name,
-                subtitle: e.day != null ? '매월 ${e.day}일' : null,
+                subtitle: null,
                 value: '+${fmt.format(e.amount)}원',
                 valueColor: AppColors.income,
                 onDelete: () {
@@ -768,8 +533,6 @@ class _AddIncomeSheet extends StatefulWidget {
 class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   final _nameCtrl = TextEditingController();
   int _amount = 0;
-  String _type = 'salary';
-  int? _day;
 
   @override
   void dispose() {
@@ -794,7 +557,6 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 핸들
           Center(
             child: Container(
               width: 36,
@@ -808,62 +570,10 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
           const SizedBox(height: AppSpacing.lg),
           Text('고정 수입 추가', style: tt.titleLarge),
           const SizedBox(height: AppSpacing.lg),
-
-          // 타입
-          Row(
-            children: [
-              ('salary', '급여', Icons.account_balance_rounded),
-              ('extra', '부가 수입', Icons.work_rounded),
-            ].map((opt) {
-              final (val, label, icon) = opt;
-              final isSel = _type == val;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _type = val),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: EdgeInsets.only(
-                        right: val == 'salary' ? AppSpacing.sm : 0),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.sm + 2),
-                    decoration: BoxDecoration(
-                      color: isSel
-                          ? AppColors.income.withValues(alpha: 0.1)
-                          : const Color(0x0A000000),
-                      borderRadius: AppRadius.buttonBorderRadius,
-                      border: Border.all(
-                          color: isSel
-                              ? AppColors.income
-                              : AppColors.divider),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(icon,
-                            size: 14,
-                            color: isSel
-                                ? AppColors.income
-                                : AppColors.textSecondary),
-                        const SizedBox(width: 4),
-                        Text(label,
-                            style: tt.labelMedium?.copyWith(
-                              color: isSel
-                                  ? AppColors.income
-                                  : AppColors.textSecondary,
-                            )),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
           AppTextField(
             controller: _nameCtrl,
             label: '이름',
-            hint: _type == 'salary' ? '회사명 또는 급여' : '부업, 임대료 등',
+            hint: '월급, 부업, 임대료 등',
             autofocus: true,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -871,15 +581,6 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
             label: '예상 금액',
             onChanged: (v) => _amount = v,
           ),
-          const SizedBox(height: AppSpacing.md),
-
-          // 지급일 (간단한 드롭다운식)
-          _InlineDayPicker(
-            label: '지급일 (선택)',
-            value: _day,
-            onChanged: (v) => setState(() => _day = v),
-          ),
-
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton(
             onPressed: _nameCtrl.text.trim().isEmpty || _amount <= 0
@@ -890,8 +591,6 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
                         _IncomeEntry(
                           name: _nameCtrl.text.trim(),
                           amount: _amount,
-                          type: _type,
-                          day: _day,
                         ));
                   },
             style: ElevatedButton.styleFrom(
@@ -1063,8 +762,6 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
     );
   }
 }
-
-// ── 인라인 날짜 피커 (공용) ────────────────────────────────────
 
 class _InlineDayPicker extends StatefulWidget {
   const _InlineDayPicker({

@@ -6,10 +6,6 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   return SettingsRepository(ref.read(dioProvider));
 });
 
-final userSettingProvider = FutureProvider<UserSetting>((ref) {
-  return ref.watch(settingsRepositoryProvider).getSetting();
-});
-
 final fixedIncomesProvider = FutureProvider<List<FixedIncomeItem>>((ref) {
   return ref.watch(settingsRepositoryProvider).listIncomes();
 });
