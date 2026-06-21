@@ -8,6 +8,7 @@ import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
 import '../../../../shared/widgets/selection_chip.dart';
+import '../../../budget/presentation/providers/budget_provider.dart';
 import '../../../categories/presentation/providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
 
@@ -116,6 +117,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
         memo: _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim(),
       );
       ref.invalidate(currentCycleTransactionsProvider);
+      ref.invalidate(availableBudgetProvider);
       if (mounted) Navigator.pop(context, true);
     } catch (e, st) {
       debugPrint('거래 저장 실패: $e\n$st');
