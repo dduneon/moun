@@ -16,14 +16,14 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # income: FK → 컬럼 (새 DB에는 처음부터 없을 수 있으므로 존재 확인 후 제거)
-    fk_exists = conn.execute(sa.text(
-        "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS "
-        "WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'income' "
-        "AND CONSTRAINT_NAME = 'income_ibfk_2' AND CONSTRAINT_TYPE = 'FOREIGN KEY'"
-    )).scalar()
-    if fk_exists:
-        conn.execute(sa.text('ALTER TABLE `income` DROP FOREIGN KEY `income_ibfk_2`'))
+    # income: budget_cycle_id 컬럼에 걸린 FK 모두 제거 후 컬럼 삭제
+    fk_names = conn.execute(sa.text(
+        "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'income' "
+        "AND COLUMN_NAME = 'budget_cycle_id' AND REFERENCED_TABLE_NAME IS NOT NULL"
+    )).scalars().all()
+    for fk in fk_names:
+        conn.execute(sa.text(f'ALTER TABLE `income` DROP FOREIGN KEY `{fk}`'))
 
     col_exists = conn.execute(sa.text(
         "SELECT COUNT(*) FROM information_schema.COLUMNS "
