@@ -3,12 +3,15 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/selection_chip.dart';
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 import '../../../budget/presentation/providers/budget_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../widgets/add_transaction_sheet.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -246,7 +249,7 @@ class _SummaryTile extends StatelessWidget {
   }
 }
 
-class _TransactionListView extends StatelessWidget {
+class _TransactionListView extends ConsumerWidget {
   const _TransactionListView({required this.txByDay});
   final Map<DateTime, List<TransactionItem>> txByDay;
 
@@ -254,7 +257,7 @@ class _TransactionListView extends StatelessWidget {
   static final _amtFmt = NumberFormat('#,###');
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tt = Theme.of(context).textTheme;
     final sorted = txByDay.entries.toList()
       ..sort((a, b) => b.key.compareTo(a.key));
@@ -331,7 +334,7 @@ class _TransactionListView extends StatelessWidget {
                   final isLast = e.key == entry.value.length - 1;
                   return Column(
                     children: [
-                      _TransactionRow(item: e.value),
+                      _TransactionRow(item: e.value, ref: ref),
                       if (!isLast)
                         const Divider(height: 1, indent: 56, endIndent: 16),
                     ],
@@ -348,16 +351,27 @@ class _TransactionListView extends StatelessWidget {
 }
 
 class _TransactionRow extends StatelessWidget {
-  const _TransactionRow({required this.item});
+  const _TransactionRow({required this.item, required this.ref});
   final TransactionItem item;
+  final WidgetRef ref;
 
   static final _amtFmt = NumberFormat('#,###');
+
+  Future<void> _showActions(BuildContext context) async {
+    await AppBottomSheet.show<void>(
+      context,
+      child: _TransactionActionSheet(item: item, ref: ref),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
 
-    return Padding(
+    return InkWell(
+      onTap: () => _showActions(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md, vertical: AppSpacing.sm,
       ),
@@ -395,6 +409,130 @@ class _TransactionRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+class _TransactionActionSheet extends StatelessWidget {
+  const _TransactionActionSheet({required this.item, required this.ref});
+  final TransactionItem item;
+  final WidgetRef ref;
+
+  Future<void> _delete(BuildContext context) async {
+    Navigator.pop(context);
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: '거래 삭제',
+      message: '이 거래를 삭제할까요?',
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+    );
+    if (confirmed == true) {
+      await ref.read(transactionRepositoryProvider).delete(item.id);
+      ref.invalidate(currentCycleTransactionsProvider);
+      ref.invalidate(availableBudgetProvider);
+    }
+  }
+
+  Future<void> _edit(BuildContext context) async {
+    Navigator.pop(context);
+    await AddTransactionSheet.show(context, initialItem: item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final amtFmt = NumberFormat('#,###');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Text(item.name,
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            item.isIncome
+                ? '+${amtFmt.format(item.amount)}원'
+                : '-${amtFmt.format(item.amount.abs())}원',
+            style: tt.bodySmall?.copyWith(
+              color: item.isIncome ? AppColors.income : AppColors.expense,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SheetAction(
+          icon: Icons.edit_rounded,
+          iconColor: AppColors.primary,
+          label: '수정',
+          onTap: () => _edit(context),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _SheetAction(
+          icon: Icons.delete_rounded,
+          iconColor: AppColors.expense,
+          label: '삭제',
+          labelColor: AppColors.expense,
+          onTap: () => _delete(context),
+        ),
+      ],
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  const _SheetAction({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.labelColor,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final Color? labelColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.buttonBorderRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.06),
+          borderRadius: AppRadius.buttonBorderRadius,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Text(
+              label,
+              style: tt.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: labelColor ?? AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

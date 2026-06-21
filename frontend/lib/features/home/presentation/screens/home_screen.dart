@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/domain/auth_model.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
@@ -11,10 +12,12 @@ import '../../../../features/budget/presentation/providers/budget_provider.dart'
 import '../../../../features/settings/presentation/providers/settings_provider.dart';
 import '../../../../features/transactions/presentation/providers/transaction_provider.dart';
 import '../../../../shared/widgets/amount_display.dart';
+import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/moun_calendar.dart';
 import '../../../../shared/widgets/category_selector.dart' show CategoryItem;
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
+import '../../../transactions/presentation/widgets/add_transaction_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -44,8 +47,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final cycleAsync = ref.watch(currentCycleProvider);
     final budgetAsync = ref.watch(availableBudgetProvider);
     final txByDayAsync = ref.watch(transactionsByDateProvider);
-    final fixedIncomesAsync = ref.watch(fixedIncomesProvider);
-    final fixedExpensesAsync = ref.watch(fixedExpensesProvider);
+    final fixedIncomesAsync = ref.watch(fixedIncomesProvider(_viewMonth));
+    final fixedExpensesAsync = ref.watch(fixedExpensesProvider(_viewMonth));
 
     return SafeArea(
       child: CustomScrollView(
@@ -275,6 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: AppColors.income,
                           ),
                           isPending: isPending,
+                          isFixed: true,
                         ));
                       }
                     }
@@ -296,6 +300,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: AppColors.expensePending,
                           ),
                           isPending: isPending,
+                          isFixed: true,
                         ));
                       }
                     }
@@ -483,7 +488,7 @@ class _BudgetProgressBar extends StatelessWidget {
   }
 }
 
-class _DayDetail extends StatelessWidget {
+class _DayDetail extends ConsumerWidget {
   const _DayDetail({required this.day, required this.transactions});
   final DateTime day;
   final List<TransactionItem> transactions;
@@ -492,7 +497,7 @@ class _DayDetail extends StatelessWidget {
   static final _amtFmt = NumberFormat('#,###');
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tt = Theme.of(context).textTheme;
     final totalIncome = transactions
         .where((t) => t.isIncome)
@@ -540,7 +545,7 @@ class _DayDetail extends StatelessWidget {
               final isLast = e.key == transactions.length - 1;
               return Column(
                 children: [
-                  _TransactionRow(item: e.value),
+                  _TransactionRow(item: e.value, ref: ref),
                   if (!isLast)
                     const Divider(height: 1, indent: 56, endIndent: 0),
                 ],
@@ -554,16 +559,27 @@ class _DayDetail extends StatelessWidget {
 }
 
 class _TransactionRow extends StatelessWidget {
-  const _TransactionRow({required this.item});
+  const _TransactionRow({required this.item, required this.ref});
   final TransactionItem item;
+  final WidgetRef ref;
 
   static final _amtFmt = NumberFormat('#,###');
+
+  Future<void> _showActions(BuildContext context) async {
+    await AppBottomSheet.show<void>(
+      context,
+      child: _TransactionActionSheet(item: item, ref: ref),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
 
-    return Padding(
+    return InkWell(
+      onTap: () => _showActions(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md, vertical: AppSpacing.sm,
       ),
@@ -633,6 +649,162 @@ class _TransactionRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+class _TransactionActionSheet extends StatelessWidget {
+  const _TransactionActionSheet({required this.item, required this.ref});
+  final TransactionItem item;
+  final WidgetRef ref;
+
+  Future<void> _deleteTransaction(BuildContext context) async {
+    Navigator.pop(context);
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: '거래 삭제',
+      message: '이 거래를 삭제할까요?',
+      confirmLabel: '삭제',
+      cancelLabel: '취소',
+    );
+    if (confirmed == true) {
+      await ref.read(transactionRepositoryProvider).delete(item.id);
+      ref.invalidate(currentCycleTransactionsProvider);
+      ref.invalidate(availableBudgetProvider);
+    }
+  }
+
+  Future<void> _editTransaction(BuildContext context) async {
+    Navigator.pop(context);
+    await AddTransactionSheet.show(context, initialItem: item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final amtFmt = NumberFormat('#,###');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Text(item.name,
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            item.isIncome
+                ? '+${amtFmt.format(item.amount)}원'
+                : '-${amtFmt.format(item.amount.abs())}원',
+            style: tt.bodySmall?.copyWith(
+              color: item.isIncome ? AppColors.income : AppColors.expense,
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (item.isFixed) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.md, horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.textSecondary.withValues(alpha: 0.06),
+              borderRadius: AppRadius.buttonBorderRadius,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.textSecondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.info_outline_rounded,
+                      size: 18, color: AppColors.textSecondary),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    '고정 지출/수입은 설정에서 수정할 수 있어요',
+                    style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          _SheetAction(
+            icon: Icons.edit_rounded,
+            iconColor: AppColors.primary,
+            label: '수정',
+            onTap: () => _editTransaction(context),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _SheetAction(
+            icon: Icons.delete_rounded,
+            iconColor: AppColors.expense,
+            label: '삭제',
+            labelColor: AppColors.expense,
+            onTap: () => _deleteTransaction(context),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  const _SheetAction({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.labelColor,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final Color? labelColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.buttonBorderRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.06),
+          borderRadius: AppRadius.buttonBorderRadius,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Text(
+              label,
+              style: tt.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: labelColor ?? AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

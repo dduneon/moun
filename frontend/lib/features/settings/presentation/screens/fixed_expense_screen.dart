@@ -11,16 +11,74 @@ import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/gradient_background.dart';
+import '../../../../features/budget/presentation/providers/budget_provider.dart';
 import '../providers/settings_provider.dart';
 
 class FixedExpenseScreen extends ConsumerWidget {
   const FixedExpenseScreen({super.key});
 
+  Future<DateTime?> _showEffectiveFromDialog(BuildContext context) {
+    final now = DateTime.now();
+    final thisMonth = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+
+    return showDialog<DateTime>(
+      context: context,
+      builder: (ctx) => _EffectiveFromDialog(
+        thisMonth: thisMonth,
+        nextMonth: nextMonth,
+        itemLabel: '고정 지출',
+      ),
+    );
+  }
+
+  Future<void> _showExpenseActions(BuildContext context, WidgetRef ref, dynamic e) async {
+    await AppBottomSheet.show<void>(
+      context,
+      child: _ActionSheet(
+        title: e.name,
+        onEdit: () async {
+          final effectiveFrom = await _showEffectiveFromDialog(context);
+          if (effectiveFrom == null || !context.mounted) return;
+          await AppBottomSheet.show(
+            context,
+            title: '고정 지출 수정',
+            child: _AddExpenseForm(
+              initial: e,
+              onSave: (name, amount, day, method) async {
+                await ref.read(settingsRepositoryProvider).updateFixedExpense(
+                  e.id, name: name, amount: amount, billingDay: day, paymentMethod: method,
+                  effectiveFrom: effectiveFrom,
+                );
+                ref.invalidate(fixedExpensesProvider);
+                ref.invalidate(availableBudgetProvider);
+              },
+            ),
+          );
+        },
+        onDelete: () async {
+          final ok = await AppConfirmDialog.show(
+            context,
+            title: '삭제',
+            message: '${e.name}을(를) 삭제할까요?',
+            confirmLabel: '삭제',
+            isDestructive: true,
+          );
+          if (ok && context.mounted) {
+            await ref.read(settingsRepositoryProvider).deleteFixedExpense(e.id);
+            ref.invalidate(fixedExpensesProvider);
+            ref.invalidate(availableBudgetProvider);
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tt = Theme.of(context).textTheme;
     final fmt = NumberFormat('#,###');
-    final async = ref.watch(fixedExpensesProvider);
+    final async = ref.watch(fixedExpensesProvider(null));
 
     return GradientBackground(
       child: Scaffold(
@@ -85,21 +143,7 @@ class FixedExpenseScreen extends ConsumerWidget {
                                   _ExpenseRow(
                                     item: e,
                                     fmt: fmt,
-                                    onDelete: () async {
-                                      final ok = await AppConfirmDialog.show(
-                                        context,
-                                        title: '삭제',
-                                        message: '${e.name}을(를) 삭제할까요?',
-                                        confirmLabel: '삭제',
-                                        isDestructive: true,
-                                      );
-                                      if (ok) {
-                                        await ref
-                                            .read(settingsRepositoryProvider)
-                                            .deleteFixedExpense(e.id);
-                                        ref.invalidate(fixedExpensesProvider);
-                                      }
-                                    },
+                                    onTap: () => _showExpenseActions(context, ref, e),
                                   ),
                                   if (e != items.last)
                                     const Divider(height: 1, indent: 52),
@@ -124,6 +168,7 @@ class FixedExpenseScreen extends ConsumerWidget {
                                         paymentMethod: method,
                                       );
                                   ref.invalidate(fixedExpensesProvider);
+                                  ref.invalidate(availableBudgetProvider);
                                 },
                               ),
                             );
@@ -154,12 +199,12 @@ class _ExpenseRow extends StatelessWidget {
   const _ExpenseRow({
     required this.item,
     required this.fmt,
-    required this.onDelete,
+    required this.onTap,
   });
 
   final dynamic item;
   final NumberFormat fmt;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   String _pmLabel(String v) => switch (v) {
         'card' => '카드',
@@ -171,57 +216,49 @@ class _ExpenseRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.md),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.expense.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.repeat_rounded,
-                size: 18, color: AppColors.expense),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name,
-                    style:
-                        tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                Text(
-                  '매월 ${item.billingDay}일 · ${_pmLabel(item.paymentMethod)}',
-                  style: tt.labelSmall
-                      ?.copyWith(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '-${fmt.format((item.amount as num).round())}원',
-            style: tt.bodyMedium?.copyWith(
-                color: AppColors.expense, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          GestureDetector(
-            onTap: onDelete,
-            child: Container(
-              width: 28,
-              height: 28,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: AppColors.expense.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
+                color: AppColors.expense.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.close_rounded,
-                  size: 15, color: AppColors.expense),
+              child: const Icon(Icons.repeat_rounded,
+                  size: 18, color: AppColors.expense),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.name,
+                      style:
+                          tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                  Text(
+                    '매월 ${item.billingDay}일 · ${_pmLabel(item.paymentMethod)}',
+                    style: tt.labelSmall
+                        ?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '-${fmt.format((item.amount as num).round())}원',
+              style: tt.bodyMedium?.copyWith(
+                  color: AppColors.expense, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
@@ -267,19 +304,21 @@ class _AddRow extends StatelessWidget {
 // ── 고정 지출 추가 폼 ─────────────────────────────────────────
 
 class _AddExpenseForm extends StatefulWidget {
-  const _AddExpenseForm({required this.onSave});
+  const _AddExpenseForm({required this.onSave, this.initial});
   final Future<void> Function(
       String name, double amount, int day, String method) onSave;
+  final dynamic initial;
 
   @override
   State<_AddExpenseForm> createState() => _AddExpenseFormState();
 }
 
 class _AddExpenseFormState extends State<_AddExpenseForm> {
-  final _nameCtrl = TextEditingController();
-  int _amount = 0;
-  int _billingDay = 1;
-  String _method = 'account';
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _amountCtrl;
+  late int _amount;
+  late int _billingDay;
+  late String _method;
   bool _saving = false;
 
   static const _methods = [
@@ -289,8 +328,25 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final init = widget.initial;
+    _amount = init != null ? (init.amount as num).round() : 0;
+    _billingDay = init?.billingDay ?? 1;
+    _method = init?.paymentMethod ?? 'account';
+    _nameCtrl = TextEditingController(text: init?.name ?? '');
+    _amountCtrl = TextEditingController(
+      text: _amount > 0
+          ? _amount.toString().replaceAllMapped(
+              RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')
+          : '',
+    );
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
+    _amountCtrl.dispose();
     super.dispose();
   }
 
@@ -311,6 +367,7 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
         const SizedBox(height: AppSpacing.md),
         AmountTextField(
           label: '금액',
+          controller: _amountCtrl,
           onChanged: (v) => _amount = v,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -387,7 +444,7 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : Text('추가', style: tt.labelLarge),
+              : Text(widget.initial != null ? '수정 완료' : '추가', style: tt.labelLarge),
         ),
       ],
     );
@@ -506,6 +563,245 @@ class _InlineDayPickerState extends State<_InlineDayPicker> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── 수정/삭제 액션 시트 ───────────────────────────────────────
+
+class _ActionSheet extends StatelessWidget {
+  const _ActionSheet({
+    required this.title,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String title;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Text(title,
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SheetAction(
+          icon: Icons.edit_rounded,
+          iconColor: AppColors.primary,
+          label: '수정',
+          onTap: () {
+            Navigator.pop(context);
+            onEdit();
+          },
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _SheetAction(
+          icon: Icons.delete_rounded,
+          iconColor: AppColors.expense,
+          label: '삭제',
+          labelColor: AppColors.expense,
+          onTap: () {
+            Navigator.pop(context);
+            onDelete();
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  const _SheetAction({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+    this.labelColor,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final Color? labelColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.buttonBorderRadius,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.06),
+          borderRadius: AppRadius.buttonBorderRadius,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Text(
+              label,
+              style: tt.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: labelColor ?? AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 적용 시점 다이얼로그 ──────────────────────────────────────
+
+class _EffectiveFromDialog extends StatelessWidget {
+  const _EffectiveFromDialog({
+    required this.thisMonth,
+    required this.nextMonth,
+    required this.itemLabel,
+  });
+
+  final DateTime thisMonth;
+  final DateTime nextMonth;
+  final String itemLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 28),
+          Text(
+            '언제부터 적용할까요?',
+            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '변경 사항이 적용되는 시점을 선택해주세요',
+            style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+          const Divider(height: 1),
+          _DialogOption(
+            icon: Icons.calendar_today_rounded,
+            iconColor: AppColors.expense,
+            title: '이번 달 ${thisMonth.month}월부터',
+            subtitle: '${thisMonth.year}년 ${thisMonth.month}월 $itemLabel부터 반영',
+            onTap: () => Navigator.pop(context, thisMonth),
+          ),
+          const Divider(height: 1, indent: 56),
+          _DialogOption(
+            icon: Icons.arrow_forward_rounded,
+            iconColor: AppColors.primary,
+            title: '다음 달 ${nextMonth.month}월부터',
+            subtitle: '${nextMonth.year}년 ${nextMonth.month}월 $itemLabel부터 반영',
+            onTap: () => Navigator.pop(context, nextMonth),
+          ),
+          const Divider(height: 1, indent: 56),
+          _DialogOption(
+            icon: Icons.history_rounded,
+            iconColor: AppColors.textSecondary,
+            title: '처음부터 (전체 수정)',
+            subtitle: '기존 기록도 모두 변경됩니다',
+            onTap: () => Navigator.pop(context, DateTime(2000)),
+          ),
+          const Divider(height: 1),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 48),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+            ),
+            child: Text('취소', style: tt.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogOption extends StatelessWidget {
+  const _DialogOption({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: tt.bodySmall?.copyWith(
+                          color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.textSecondary),
+          ],
+        ),
       ),
     );
   }
