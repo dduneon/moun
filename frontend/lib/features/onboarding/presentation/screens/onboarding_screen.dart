@@ -29,10 +29,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // ── 스텝 2: 고정 지출
   final List<_ExpenseEntry> _expenses = [];
 
+  // ── 스텝 3: 예산 기준일
+  int _salaryDay = 1;
+
   bool _saving = false;
 
   void _next() {
-    if (_page < 1) {
+    if (_page < 2) {
       _pageCtrl.animateToPage(_page + 1,
           duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
       setState(() => _page++);
@@ -64,6 +67,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         );
       }
 
+      // 3) 예산 기준일 저장
+      await repo.updateSalaryDay(_salaryDay);
+
       ref.read(authProvider.notifier).completeOnboarding();
     } catch (e) {
       setState(() => _saving = false);
@@ -83,7 +89,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final steps = ['고정 수입', '고정 지출'];
+    final steps = ['고정 수입', '고정 지출', '예산 기준일'];
 
     return Scaffold(
       body: SafeArea(
@@ -137,6 +143,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     expenses: _expenses,
                     onChanged: () => setState(() {}),
                   ),
+                  _Step4(
+                    salaryDay: _salaryDay,
+                    onChanged: (v) => setState(() => _salaryDay = v),
+                  ),
                 ],
               ),
             ),
@@ -188,13 +198,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   strokeWidth: 2, color: Colors.white),
                             )
                           : Text(
-                              _page < 1 ? '다음' : '시작하기',
+                              _page < 2 ? '다음' : '시작하기',
                               style: tt.labelLarge
                                   ?.copyWith(color: Colors.white),
                             ),
                     ),
                   ),
-                  if (_page < 1) ...[
+                  if (_page < 2) ...[
                     const SizedBox(width: AppSpacing.sm),
                     TextButton(
                       onPressed: _saving ? null : _next,
@@ -333,6 +343,7 @@ class _Step2State extends State<_Step2> {
 
 // ── Step 3: 고정 지출 ──────────────────────────────────────
 
+
 class _ExpenseEntry {
   _ExpenseEntry({
     required this.name,
@@ -450,6 +461,193 @@ class _Step3State extends State<_Step3> {
           ).animate().fadeIn(delay: 300.ms),
         ],
       ),
+    );
+  }
+}
+
+// ── Step 4: 예산 기준일 ──────────────────────────────────────
+
+class _Step4 extends StatelessWidget {
+  const _Step4({required this.salaryDay, required this.onChanged});
+  final int salaryDay;
+  final ValueChanged<int> onChanged;
+
+  String _cycleRangeLabel(int day) {
+    final now = DateTime.now();
+    if (day <= 1) {
+      final lastDay = DateTime(now.year, now.month + 1, 0).day;
+      return '${now.month}월 1일 ~ ${now.month}월 ${lastDay}일';
+    }
+    if (now.day >= day) {
+      final nextMonth = now.month == 12 ? 1 : now.month + 1;
+      return '${now.month}월 ${day}일 ~ ${nextMonth}월 ${day - 1}일';
+    } else {
+      final prevMonth = now.month == 1 ? 12 : now.month - 1;
+      return '${prevMonth}월 ${day}일 ~ ${now.month}월 ${day - 1}일';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final rangeLabel = _cycleRangeLabel(salaryDay);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppSpacing.md),
+          Text('예산은 언제부터\n시작할까요?',
+              style: tt.headlineMedium?.copyWith(height: 1.3))
+              .animate().fadeIn(delay: 100.ms).slideY(begin: 0.1, end: 0),
+          const SizedBox(height: AppSpacing.sm),
+          Text('월급날이나 카드 결제일 등 돈 흐름이\n시작되는 날짜를 기준일로 설정하세요.',
+              style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary))
+              .animate().fadeIn(delay: 200.ms),
+
+          const SizedBox(height: AppSpacing.xl),
+
+          // 설명 카드
+          GlassCard(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              children: [
+                _InfoRow(
+                  icon: Icons.calendar_month_rounded,
+                  iconColor: AppColors.primary,
+                  title: '예산 사이클',
+                  desc: '기준일부터 다음 달 기준일 전날까지를 한 사이클로 계산해요.',
+                ),
+                const Divider(height: AppSpacing.lg),
+                _InfoRow(
+                  icon: Icons.account_balance_wallet_rounded,
+                  iconColor: AppColors.income,
+                  title: '사용 가능 예산',
+                  desc: '이번 사이클의 수입에서 고정 지출과 실제 지출을 빼서 보여줘요.',
+                ),
+                const Divider(height: AppSpacing.lg),
+                _InfoRow(
+                  icon: Icons.swap_horiz_rounded,
+                  iconColor: AppColors.expensePending,
+                  title: '언제든 변경 가능',
+                  desc: '설정 화면에서 기준일을 바꾸면 다음 사이클부터 반영돼요.',
+                ),
+              ],
+            ),
+          ).animate().fadeIn(delay: 250.ms),
+
+          const SizedBox(height: AppSpacing.lg),
+
+          // 현재 사이클 미리보기
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.calendar_today_rounded,
+                    size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '이번 사이클: $rangeLabel',
+                  style: tt.labelMedium?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ).animate().fadeIn(delay: 300.ms),
+
+          const SizedBox(height: AppSpacing.md),
+
+          // 날짜 그리드
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 7,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            children: List.generate(28, (i) {
+              final day = i + 1;
+              final isSelected = day == salaryDay;
+              return GestureDetector(
+                onTap: () => onChanged(day),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$day',
+                    style: tt.bodySmall?.copyWith(
+                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ).animate().fadeIn(delay: 300.ms),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.desc,
+  });
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String desc;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(desc,
+                  style: tt.bodySmall?.copyWith(
+                      color: AppColors.textSecondary, height: 1.4)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
