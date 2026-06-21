@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -8,10 +9,6 @@ import '../../../../features/auth/domain/auth_model.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
-import 'app_info_screen.dart';
-import 'fixed_expense_screen.dart';
-import 'fixed_income_screen.dart';
-import 'notification_settings_screen.dart';
 import '../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -109,22 +106,14 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.trending_up_rounded,
                       iconColor: AppColors.income,
                       label: '고정 수입',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const FixedIncomeScreen()),
-                      ),
+                      onTap: () => context.push('/settings/fixed-income'),
                     ),
                     const Divider(height: 1, indent: 52),
                     _SettingsTile(
                       icon: Icons.repeat_rounded,
                       iconColor: AppColors.expense,
                       label: '고정 지출',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const FixedExpenseScreen()),
-                      ),
+                      onTap: () => context.push('/settings/fixed-expense'),
                     ),
                   ],
                 ),
@@ -147,11 +136,7 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.notifications_rounded,
                       iconColor: const Color(0xFFFF9F43),
                       label: '알림 설정',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const NotificationSettingsScreen()),
-                      ),
+                      onTap: () => context.push('/settings/notifications'),
                     ),
                     const Divider(height: 1, indent: 52),
                     _SettingsTile(
@@ -159,11 +144,7 @@ class SettingsScreen extends ConsumerWidget {
                       iconColor: AppColors.textSecondary,
                       label: '버전 정보',
                       value: 'v1.0.0',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AppInfoScreen()),
-                      ),
+                      onTap: () => context.push('/settings/app-info'),
                     ),
                   ],
                 ),

@@ -32,6 +32,14 @@ class FixedExpenseScreen extends ConsumerWidget {
     );
   }
 
+  Future<String?> _showDeleteDialog(BuildContext context, String name) {
+    final now = DateTime.now();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => _DeleteDialog(thisMonth: DateTime(now.year, now.month)),
+    );
+  }
+
   Future<void> _showExpenseActions(BuildContext context, WidgetRef ref, dynamic e) async {
     await AppBottomSheet.show<void>(
       context,
@@ -57,18 +65,13 @@ class FixedExpenseScreen extends ConsumerWidget {
           );
         },
         onDelete: () async {
-          final ok = await AppConfirmDialog.show(
-            context,
-            title: '삭제',
-            message: '${e.name}을(를) 삭제할까요?',
-            confirmLabel: '삭제',
-            isDestructive: true,
-          );
-          if (ok && context.mounted) {
-            await ref.read(settingsRepositoryProvider).deleteFixedExpense(e.id);
-            ref.invalidate(fixedExpensesProvider);
-            ref.invalidate(availableBudgetProvider);
-          }
+          final option = await _showDeleteDialog(context, e.name as String);
+          if (option == null || !context.mounted) return;
+          final now = DateTime.now();
+          final endFrom = option == 'soft' ? DateTime(now.year, now.month) : null;
+          await ref.read(settingsRepositoryProvider).deleteFixedExpense(e.id, endFrom: endFrom);
+          ref.invalidate(fixedExpensesProvider);
+          ref.invalidate(availableBudgetProvider);
         },
       ),
     );
@@ -668,6 +671,64 @@ class _SheetAction extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── 삭제 범위 다이얼로그 ──────────────────────────────────────
+
+class _DeleteDialog extends StatelessWidget {
+  const _DeleteDialog({required this.thisMonth});
+  final DateTime thisMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 28),
+          Text('어떻게 삭제할까요?',
+              style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text('삭제 범위를 선택해주세요',
+              style: tt.bodySmall?.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 20),
+          const Divider(height: 1),
+          _DialogOption(
+            icon: Icons.calendar_today_rounded,
+            iconColor: AppColors.expense,
+            title: '${thisMonth.month}월부터 삭제',
+            subtitle: '이전 달 기록은 유지됩니다',
+            onTap: () => Navigator.pop(context, 'soft'),
+          ),
+          const Divider(height: 1, indent: 56),
+          _DialogOption(
+            icon: Icons.delete_forever_rounded,
+            iconColor: const Color(0xFFB00020),
+            title: '전체 삭제',
+            subtitle: '모든 기록이 삭제됩니다',
+            onTap: () => Navigator.pop(context, 'hard'),
+          ),
+          const Divider(height: 1),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 48),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+            ),
+            child: Text('취소', style: tt.bodyMedium),
+          ),
+        ],
       ),
     );
   }
