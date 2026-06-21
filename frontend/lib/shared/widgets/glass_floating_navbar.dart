@@ -54,17 +54,24 @@ class GlassFloatingNavbar extends StatelessWidget {
           child: Container(
             height: 64,
             decoration: BoxDecoration(
-              color: AppColors.surfaceGlass,
+              color: const Color(0xFFF2F4F8),
               borderRadius: AppRadius.navbarBorderRadius,
               border: Border.all(
                 color: AppColors.surfaceGlassBorder,
                 width: 1,
               ),
               boxShadow: const [
+                // 아래 그림자
                 BoxShadow(
                   color: Color(0x18000000),
                   blurRadius: 32,
                   offset: Offset(0, 8),
+                ),
+                // 위쪽 그림자 — 배경과 구분
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 16,
+                  offset: Offset(0, -4),
                 ),
               ],
             ),
