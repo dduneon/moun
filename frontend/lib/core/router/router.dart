@@ -10,6 +10,10 @@ import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/transactions/presentation/screens/transactions_screen.dart';
 import '../../features/statistics/presentation/screens/statistics_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../../features/settings/presentation/screens/fixed_income_screen.dart';
+import '../../features/settings/presentation/screens/fixed_expense_screen.dart';
+import '../../features/settings/presentation/screens/notification_settings_screen.dart';
+import '../../features/settings/presentation/screens/app_info_screen.dart';
 import '../../features/shell/main_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -55,13 +59,40 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/statistics', builder: (_, __) => const StatisticsScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+            GoRoute(
+              path: '/settings',
+              builder: (_, __) => const SettingsScreen(),
+              routes: [
+                GoRoute(path: 'fixed-income', pageBuilder: (_, s) => _settingsPage(const FixedIncomeScreen(), s.pageKey)),
+                GoRoute(path: 'fixed-expense', pageBuilder: (_, s) => _settingsPage(const FixedExpenseScreen(), s.pageKey)),
+                GoRoute(path: 'notifications', pageBuilder: (_, s) => _settingsPage(const NotificationSettingsScreen(), s.pageKey)),
+                GoRoute(path: 'app-info', pageBuilder: (_, s) => _settingsPage(const AppInfoScreen(), s.pageKey)),
+              ],
+            ),
           ]),
         ],
       ),
     ],
   );
 });
+
+
+CustomTransitionPage<void> _settingsPage(Widget child, LocalKey key) {
+  return CustomTransitionPage<void>(
+    key: key,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      // 이전 화면은 제자리 유지 (secondary 무시), 새 화면만 오른쪽에서 슬라이드
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+        child: child,
+      );
+    },
+  );
+}
 
 class _AuthStateListenable extends ChangeNotifier {
   _AuthStateListenable(Ref ref) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/glass_card.dart';
+import '../../../../shared/widgets/gradient_background.dart';
 import '../providers/settings_provider.dart';
 
 class FixedExpenseScreen extends ConsumerWidget {
@@ -20,31 +22,33 @@ class FixedExpenseScreen extends ConsumerWidget {
     final fmt = NumberFormat('#,###');
     final async = ref.watch(fixedExpensesProvider);
 
-    return Scaffold(
+    return GradientBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          shape: BoxShape.circle,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => context.pop(),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.arrow_back_rounded,
+                              size: 18, color: AppColors.textPrimary),
                         ),
-                        child: const Icon(Icons.arrow_back_rounded,
-                            size: 18, color: AppColors.textPrimary),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Text('고정 지출', style: tt.headlineMedium),
+                      const SizedBox(width: AppSpacing.md),
+                      Text('고정 지출', style: tt.headlineMedium),
                   ],
                 ).animate().fadeIn(),
               ),
@@ -142,7 +146,7 @@ class FixedExpenseScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
