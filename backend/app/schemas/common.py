@@ -25,6 +25,9 @@ class IncomeResponse(BaseModel):
     expected_amount: Optional[Decimal]
     actual_amount: Optional[Decimal]
     received_date: Optional[date]
+    group_id: Optional[int]
+    effective_from: date
+    end_date: Optional[date]
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -35,6 +38,11 @@ class IncomePatch(BaseModel):
     expected_amount: Optional[Decimal] = None
     actual_amount: Optional[Decimal] = None
     received_date: Optional[date] = None
+    effective_from: Optional[date] = None  # 새 버전 생성 시 지정
+
+
+class IncomeDelete(BaseModel):
+    end_from: Optional[date] = None  # None → 전체 삭제, date → 해당 월부터 소프트 삭제
 
 
 # ── FixedExpense ──────────────────────────────────────────────────────────────
@@ -53,6 +61,9 @@ class FixedExpenseResponse(BaseModel):
     payment_method: PaymentMethod
     billing_day: int
     is_active: bool
+    group_id: Optional[int]
+    effective_from: date
+    end_date: Optional[date]
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -63,6 +74,11 @@ class FixedExpensePatch(BaseModel):
     payment_method: Optional[PaymentMethod] = None
     billing_day: Optional[int] = None
     is_active: Optional[bool] = None
+    effective_from: Optional[date] = None  # 새 버전 생성 시 지정
+
+
+class FixedExpenseDelete(BaseModel):
+    end_from: Optional[date] = None  # None → 전체 삭제, date → 해당 월부터 소프트 삭제
 
 
 # ── Card ──────────────────────────────────────────────────────────────────────

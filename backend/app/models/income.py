@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,6 +23,9 @@ class Income(Base):
     expected_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     actual_amount: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
     received_date: Mapped[date | None]
+    group_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    effective_from: Mapped[date] = mapped_column(Date, default=date(2000, 1, 1))
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
