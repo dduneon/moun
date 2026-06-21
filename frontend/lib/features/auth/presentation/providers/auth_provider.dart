@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_model.dart';
@@ -103,11 +104,20 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   String _mapDioError(DioException e) {
+    debugPrint('[Auth] DioException type: ${e.type}');
+    debugPrint('[Auth] DioException message: ${e.message}');
+    debugPrint('[Auth] response status: ${e.response?.statusCode}');
+    debugPrint('[Auth] error: ${e.error}');
     final status = e.response?.statusCode;
     if (status == 401) return '이메일 또는 비밀번호가 올바르지 않습니다';
     if (status == 409) return '이미 사용 중인 이메일입니다';
+    if (status == 422) return '입력 정보를 확인해주세요';
     if (status == 429) return '잠시 후 다시 시도해주세요';
-    return '네트워크 오류가 발생했습니다';
+    if (status != null && status >= 500) return '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요';
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError) return '인터넷 연결을 확인해주세요';
+    return '알 수 없는 오류가 발생했습니다';
   }
 }
 
