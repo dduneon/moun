@@ -105,8 +105,11 @@ lib/
     theme/       # AppTheme, AppColors, AppTypography
   features/
     auth/        # Login, register, JWT session restore
+    onboarding/  # First-run setup: salary day, budget cycle config
     home/        # Dashboard / budget summary
+    budget/      # Budget cycle detail
     transactions/
+    categories/
     statistics/
     settings/
     shell/       # Bottom nav shell (StatefulShellRoute)
@@ -126,3 +129,9 @@ Apple Liquid Glass–inspired glassmorphism (iOS 26 style). Bright, refined, not
 - Full spec: [`docs/design-system.md`](docs/design-system.md)
 
 Auth state is a sealed class (`AuthStateAuthenticated`, `AuthStateAuthenticating`, `AuthStateUnauthenticated`) watched by go_router's `refreshListenable` for redirect logic.
+
+Router redirect order: unauthenticated → `/login`; authenticated but `needsOnboarding` → `/onboarding`; otherwise → `/home`.
+
+### Backend API routes
+
+`app/api/` contains one file per domain: `auth`, `budget_cycles`, `cards`, `categories`, `fixed_expenses`, `incomes`, `transactions`. All registered in `app/main.py`.
