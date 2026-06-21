@@ -16,18 +16,41 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # income: FK → 컬럼
-    conn.execute(sa.text('ALTER TABLE `income` DROP FOREIGN KEY `income_ibfk_2`'))
-    conn.execute(sa.text('ALTER TABLE `income` DROP COLUMN `budget_cycle_id`'))
+    # income: FK → 컬럼 (새 DB에는 처음부터 없을 수 있으므로 존재 확인 후 제거)
+    fk_exists = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS "
+        "WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'income' "
+        "AND CONSTRAINT_NAME = 'income_ibfk_2' AND CONSTRAINT_TYPE = 'FOREIGN KEY'"
+    )).scalar()
+    if fk_exists:
+        conn.execute(sa.text('ALTER TABLE `income` DROP FOREIGN KEY `income_ibfk_2`'))
 
-    # transaction: 남은 단순 인덱스 → 컬럼
-    conn.execute(sa.text('ALTER TABLE `transaction` DROP INDEX `spend_cycle_id`'))
-    conn.execute(sa.text('ALTER TABLE `transaction` DROP INDEX `billing_cycle_id`'))
-    conn.execute(sa.text('ALTER TABLE `transaction` DROP COLUMN `spend_cycle_id`'))
-    conn.execute(sa.text('ALTER TABLE `transaction` DROP COLUMN `billing_cycle_id`'))
+    col_exists = conn.execute(sa.text(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'income' AND COLUMN_NAME = 'budget_cycle_id'"
+    )).scalar()
+    if col_exists:
+        conn.execute(sa.text('ALTER TABLE `income` DROP COLUMN `budget_cycle_id`'))
+
+    # transaction: 인덱스 → 컬럼
+    for idx in ('spend_cycle_id', 'billing_cycle_id'):
+        idx_exists = conn.execute(sa.text(
+            f"SELECT COUNT(*) FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transaction' AND INDEX_NAME = '{idx}'"
+        )).scalar()
+        if idx_exists:
+            conn.execute(sa.text(f'ALTER TABLE `transaction` DROP INDEX `{idx}`'))
+
+    for col in ('spend_cycle_id', 'billing_cycle_id'):
+        col_exists = conn.execute(sa.text(
+            f"SELECT COUNT(*) FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transaction' AND COLUMN_NAME = '{col}'"
+        )).scalar()
+        if col_exists:
+            conn.execute(sa.text(f'ALTER TABLE `transaction` DROP COLUMN `{col}`'))
 
     # budget_cycle 테이블 삭제
-    conn.execute(sa.text('DROP TABLE `budget_cycle`'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS `budget_cycle`'))
 
 
 def downgrade() -> None:
