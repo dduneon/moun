@@ -11,6 +11,7 @@ import '../../../../features/settings/presentation/providers/settings_provider.d
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/glass_card.dart';
+import '../../../../shared/widgets/gradient_background.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -91,7 +92,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final tt = Theme.of(context).textTheme;
     final steps = ['고정 수입', '고정 지출', '예산 기준일'];
 
-    return Scaffold(
+    return GradientBackground(
+      child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -219,7 +222,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -852,9 +855,9 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
         MediaQuery.of(context).padding.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
