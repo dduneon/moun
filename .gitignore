@@ -3,12 +3,16 @@ __pycache__/
 *.py[cod]
 .venv/
 .env
+.idea
 
 # Flutter
 frontend/.dart_tool/
 frontend/build/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
+
+# iOS CocoaPods
+frontend/ios/Podfile.lock
 
 # Docker volumes / logs
 *.log
