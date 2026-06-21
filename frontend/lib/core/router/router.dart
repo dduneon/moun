@@ -61,7 +61,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/settings',
-              builder: (_, __) => const SettingsScreen(),
+              pageBuilder: (_, s) => CustomTransitionPage(
+                key: s.pageKey,
+                child: const SettingsScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  // 서브 페이지 진입 시 설정 화면이 살짝 왼쪽으로 밀림
+                  final push = Tween<Offset>(
+                    begin: Offset.zero,
+                    end: const Offset(-0.25, 0.0),
+                  ).animate(CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeOutCubic));
+                  return SlideTransition(position: push, child: child);
+                },
+              ),
               routes: [
                 GoRoute(path: 'fixed-income', pageBuilder: (_, s) => _settingsPage(const FixedIncomeScreen(), s.pageKey)),
                 GoRoute(path: 'fixed-expense', pageBuilder: (_, s) => _settingsPage(const FixedExpenseScreen(), s.pageKey)),
@@ -82,7 +93,6 @@ CustomTransitionPage<void> _settingsPage(Widget child, LocalKey key) {
     key: key,
     child: child,
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      // 이전 화면은 제자리 유지 (secondary 무시), 새 화면만 오른쪽에서 슬라이드
       return SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(1.0, 0.0),
