@@ -54,51 +54,55 @@ class CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
+    final rows = items.length >= 5 ? 2 : 1;
+    final columns = (items.length / rows).ceil();
+    return GridView.count(
+      crossAxisCount: columns,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      crossAxisSpacing: AppSpacing.sm,
+      mainAxisSpacing: AppSpacing.sm,
+      childAspectRatio: 1.0,
       children: items.map((item) {
         final isSelected = item.id == selectedId;
         return GestureDetector(
           onTap: () => onSelected(item),
-          child: SizedBox(
-            width: 64,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? item.color.withValues(alpha: 0.15)
-                        : const Color(0x0A000000),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? item.color : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    size: 22,
-                    color: isSelected ? item.color : AppColors.textSecondary,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? item.color.withValues(alpha: 0.15)
+                      : const Color(0x0A000000),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? item.color : Colors.transparent,
+                    width: 2,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item.label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected ? item.color : AppColors.textSecondary,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  ),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
+                child: Icon(
+                  item.icon,
+                  size: 18,
+                  color: isSelected ? item.color : AppColors.textSecondary,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isSelected ? item.color : AppColors.textSecondary,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         );
       }).toList(),
