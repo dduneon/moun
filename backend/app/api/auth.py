@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import httpx
+
 from fastapi import APIRouter, HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy import select
@@ -19,8 +21,11 @@ from app.core.auth import (
 from app.core.deps import DbDep, RedisDep, UserDep
 from app.models.category import Category
 from app.models.user import User
+from app.core.config import settings
 from app.schemas.auth import (
     AccessTokenResponse,
+    KakaoLoginRequest,
+    KakaoTokenResponse,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -126,6 +131,63 @@ def patch_me(body: UserPatch, db: DbDep, user: UserDep):
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/kakao", response_model=KakaoTokenResponse)
+def kakao_login(body: KakaoLoginRequest, db: DbDep, redis: RedisDep):
+    """카카오 액세스 토큰으로 로그인/자동 가입 후 JWT 반환"""
+    # 카카오 사용자 정보 조회
+    try:
+        resp = httpx.get(
+            "https://kapi.kakao.com/v2/user/me",
+            headers={"Authorization": f"Bearer {body.kakao_access_token}"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="카카오 토큰이 유효하지 않습니다")
+
+    data = resp.json()
+    kakao_id = str(data["id"])
+    kakao_account = data.get("kakao_account", {})
+    nickname = (
+        data.get("properties", {}).get("nickname")
+        or kakao_account.get("profile", {}).get("nickname")
+        or "카카오 사용자"
+    )
+    email = kakao_account.get("email")
+
+    # 기존 유저 조회 (kakao_id 우선, 이메일 폴백)
+    user = db.scalar(select(User).where(User.kakao_id == kakao_id))
+    is_new_user = False
+    if not user and email:
+        user = db.scalar(select(User).where(User.email == email))
+        if user:
+            user.kakao_id = kakao_id
+
+    if not user:
+        is_new_user = True
+        user = User(
+            kakao_id=kakao_id,
+            email=email,
+            name=nickname,
+        )
+        db.add(user)
+        db.flush()
+        _seed_default_categories(db, user.id)
+
+    db.commit()
+    db.refresh(user)
+
+    access_token = create_access_token(user.id)
+    refresh_token, jti = create_refresh_token(user.id, body.device_id)
+    store_refresh_token(redis, user.id, jti)
+
+    return KakaoTokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        is_new_user=is_new_user,
+    )
 
 
 @router.post("/seed-categories", status_code=status.HTTP_204_NO_CONTENT)

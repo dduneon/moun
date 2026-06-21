@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'core/constants/app_constants.dart';
 import 'core/network/dio_provider.dart';
 import 'core/router/router.dart';
@@ -14,6 +15,7 @@ const _showDesignShowcase = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  KakaoSdk.init(nativeAppKey: '5d562dc375f809d620ab936174d3d3d0');
   await initializeDateFormatting('ko');
   runApp(
     ProviderScope(

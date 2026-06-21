@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_model.dart';
 import '../../../../core/network/dio_provider.dart';
@@ -48,6 +49,40 @@ class AuthNotifier extends Notifier<AuthState> {
     } on DioException catch (e) {
       state = const AuthStateUnauthenticated();
       throw _mapDioError(e);
+    }
+  }
+
+  Future<void> loginWithKakao() async {
+    state = const AuthStateAuthenticating();
+    try {
+      OAuthToken token;
+      if (await isKakaoTalkInstalled()) {
+        token = await UserApi.instance.loginWithKakaoTalk();
+      } else {
+        token = await UserApi.instance.loginWithKakaoAccount();
+      }
+
+      final tokens = await _repo.kakaoLogin(
+        kakaoAccessToken: token.accessToken,
+      );
+      await _storage.saveTokens(
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      );
+      final user = await _repo.getMe();
+      state = AuthStateAuthenticated(user, needsOnboarding: tokens.isNewUser);
+    } on KakaoAuthException catch (e) {
+      state = const AuthStateUnauthenticated();
+      if (e.error == AuthErrorCause.accessDenied) {
+        throw '카카오 로그인이 취소되었습니다';
+      }
+      throw '카카오 로그인에 실패했습니다';
+    } on DioException catch (e) {
+      state = const AuthStateUnauthenticated();
+      throw _mapDioError(e);
+    } catch (_) {
+      state = const AuthStateUnauthenticated();
+      throw '카카오 로그인에 실패했습니다';
     }
   }
 

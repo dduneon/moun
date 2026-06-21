@@ -30,7 +30,7 @@ class RefreshRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    email: str
+    email: str | None
     name: str
     is_active: bool
     salary_day: int = 1
@@ -40,3 +40,15 @@ class UserResponse(BaseModel):
 
 class UserPatch(BaseModel):
     salary_day: int | None = None
+
+
+class KakaoLoginRequest(BaseModel):
+    kakao_access_token: str
+    device_id: str = "mobile"
+
+
+class KakaoTokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    is_new_user: bool

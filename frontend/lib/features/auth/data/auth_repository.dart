@@ -8,6 +8,10 @@ abstract class AuthRepository {
     String deviceId,
   });
 
+  Future<({String accessToken, String refreshToken, bool isNewUser})> kakaoLogin({
+    required String kakaoAccessToken,
+  });
+
   Future<({String accessToken, String refreshToken})> register({
     required String email,
     required String password,
@@ -39,6 +43,22 @@ class RemoteAuthRepository implements AuthRepository {
     return (
       accessToken: res.data!['access_token'] as String,
       refreshToken: res.data!['refresh_token'] as String,
+    );
+  }
+
+  @override
+  Future<({String accessToken, String refreshToken, bool isNewUser})> kakaoLogin({
+    required String kakaoAccessToken,
+  }) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/auth/kakao',
+      data: {'kakao_access_token': kakaoAccessToken},
+      options: Options(extra: {'skipAuth': true}),
+    );
+    return (
+      accessToken: res.data!['access_token'] as String,
+      refreshToken: res.data!['refresh_token'] as String,
+      isNewUser: res.data!['is_new_user'] as bool,
     );
   }
 

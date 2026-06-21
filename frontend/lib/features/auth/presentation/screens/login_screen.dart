@@ -294,8 +294,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     const SizedBox(height: AppSpacing.md),
 
                                     AuthKakaoButton(
-                                      onPressed:
-                                          isAuthenticating ? null : () {},
+                                      onPressed: isAuthenticating
+                                          ? null
+                                          : () async {
+                                              setState(() => _errorMessage = null);
+                                              try {
+                                                await ref
+                                                    .read(authProvider.notifier)
+                                                    .loginWithKakao();
+                                              } catch (e) {
+                                                setState(() => _errorMessage = e.toString());
+                                              }
+                                            },
                                     ),
                                   ],
                                 ),

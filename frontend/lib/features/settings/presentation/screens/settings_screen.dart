@@ -55,7 +55,10 @@ class SettingsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(user?.name ?? '—', style: tt.titleLarge),
-                          Text(user?.email ?? '—', style: tt.bodySmall),
+                          Text(
+                            user?.email ?? '카카오 계정으로 로그인',
+                            style: tt.bodySmall,
+                          ),
                         ],
                       ),
                     ),

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     LOGIN_RATE_LIMIT_MAX: int = 5        # 최대 시도 횟수
     LOGIN_RATE_LIMIT_WINDOW: int = 900   # 제한 윈도우 (초, 15분)
 
+    # Kakao
+    KAKAO_REST_API_KEY: str = "a4f52f3b3ad7cd259dd9f82f4c39144e"
+
     # MinIO
     MINIO_ENDPOINT: str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"

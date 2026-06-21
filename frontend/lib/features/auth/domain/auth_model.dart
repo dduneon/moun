@@ -8,14 +8,14 @@ class AuthUser {
   });
 
   final int id;
-  final String email;
+  final String? email;
   final String name;
   final bool isActive;
   final int salaryDay;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
         id: json['id'] as int,
-        email: json['email'] as String,
+        email: json['email'] as String?,
         name: json['name'] as String,
         isActive: json['is_active'] as bool,
         salaryDay: (json['salary_day'] as int?) ?? 1,
