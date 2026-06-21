@@ -8,7 +8,9 @@ RUN pip install --no-cache-dir .
 COPY app/ app/
 COPY alembic/ alembic/
 COPY alembic.ini .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 EXPOSE 4020
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4020"]
+ENTRYPOINT ["./entrypoint.sh"]
