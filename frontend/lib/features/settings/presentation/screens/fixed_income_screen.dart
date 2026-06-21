@@ -37,7 +37,7 @@ class FixedIncomeScreen extends ConsumerWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.divider,
+                          color: Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.arrow_back_rounded,
@@ -58,13 +58,14 @@ class FixedIncomeScreen extends ConsumerWidget {
                   data: (items) => GlassCard(
                     padding: EdgeInsets.zero,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         if (items.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.md,
                                 vertical: AppSpacing.xxl),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 const Icon(
                                     Icons.account_balance_wallet_outlined,
@@ -72,6 +73,7 @@ class FixedIncomeScreen extends ConsumerWidget {
                                     color: AppColors.textSecondary),
                                 const SizedBox(height: AppSpacing.md),
                                 Text('등록된 고정 수입이 없어요',
+                                    textAlign: TextAlign.center,
                                     style: tt.bodyMedium?.copyWith(
                                         color: AppColors.textSecondary)),
                               ],

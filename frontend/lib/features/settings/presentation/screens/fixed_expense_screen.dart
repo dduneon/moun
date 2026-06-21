@@ -36,7 +36,7 @@ class FixedExpenseScreen extends ConsumerWidget {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.divider,
+                          color: Colors.transparent,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.arrow_back_rounded,

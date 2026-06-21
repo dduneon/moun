@@ -27,6 +27,7 @@ class GlassCard extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: sigmaBlur, sigmaY: sigmaBlur),
         child: Container(
+          width: double.infinity,
           padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
             color: AppColors.surfaceGlass,
