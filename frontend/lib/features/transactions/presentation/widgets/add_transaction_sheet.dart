@@ -8,19 +8,22 @@ import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
 import '../../../../shared/widgets/selection_chip.dart';
+import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 import '../../../budget/presentation/providers/budget_provider.dart';
 import '../../../categories/presentation/providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
 
 class AddTransactionSheet extends ConsumerStatefulWidget {
-  const AddTransactionSheet({super.key});
+  const AddTransactionSheet({super.key, this.initialItem});
 
-  static Future<bool?> show(BuildContext context) {
+  final TransactionItem? initialItem;
+
+  static Future<bool?> show(BuildContext context, {TransactionItem? initialItem}) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const AddTransactionSheet(),
+      builder: (ctx) => AddTransactionSheet(initialItem: initialItem),
     );
   }
 
@@ -29,16 +32,19 @@ class AddTransactionSheet extends ConsumerStatefulWidget {
 }
 
 class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
-  bool _isExpense = true;
-  int _amount = 0;
+  late bool _isExpense;
+  late int _amount;
   CategoryItem? _category;
-  DateTime _date = DateTime.now();
-  final _nameCtrl = TextEditingController();
-  final _memoCtrl = TextEditingController();
+  late DateTime _date;
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _memoCtrl;
+  late final TextEditingController _amountCtrl;
   final _amountFocus = FocusNode();
   final _nameFocus = FocusNode();
   final _memoFocus = FocusNode();
   bool _loading = false;
+
+  bool get _isEditMode => widget.initialItem != null;
 
   void _closePickers() {
     if (_showCategoryPicker || _showDatePicker) {
@@ -52,6 +58,18 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   @override
   void initState() {
     super.initState();
+    final item = widget.initialItem;
+    _isExpense = item != null ? !item.isIncome : true;
+    _amount = item != null ? item.amount.abs() : 0;
+    _date = item?.date ?? DateTime.now();
+    _nameCtrl = TextEditingController(text: item?.name ?? '');
+    _memoCtrl = TextEditingController(text: item?.memo ?? '');
+    _amountCtrl = TextEditingController(
+      text: _amount > 0
+          ? _amount.toString().replaceAllMapped(
+              RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')
+          : '',
+    );
     for (final fn in [_amountFocus, _nameFocus, _memoFocus]) {
       fn.addListener(() { if (fn.hasFocus) _closePickers(); });
     }
@@ -63,6 +81,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   void dispose() {
     _nameCtrl.dispose();
     _memoCtrl.dispose();
+    _amountCtrl.dispose();
     _amountFocus.dispose();
     _nameFocus.dispose();
     _memoFocus.dispose();
@@ -100,7 +119,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       _showErrorDialog('금액을 입력해 주세요.');
       return;
     }
-    if (_category == null) {
+    final effectiveCategory = _category ?? widget.initialItem?.category;
+    if (effectiveCategory == null) {
       _showErrorDialog('카테고리를 선택해 주세요.');
       return;
     }
@@ -108,14 +128,29 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     setState(() => _loading = true);
     try {
       final repo = ref.read(transactionRepositoryProvider);
-      await repo.create(
-        amount: _isExpense ? -_amount : _amount,
-        categoryId: _category!.id,
-        paymentMethod: 'cash',
-        transactionDate: _date,
-        name: _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
-        memo: _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim(),
-      );
+      final finalAmount = _isExpense ? -_amount : _amount;
+      final name = _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim();
+      final memo = _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim();
+
+      if (_isEditMode) {
+        await repo.update(
+          widget.initialItem!.id,
+          amount: finalAmount,
+          categoryId: effectiveCategory.id,
+          transactionDate: _date,
+          name: name,
+          memo: memo,
+        );
+      } else {
+        await repo.create(
+          amount: finalAmount,
+          categoryId: effectiveCategory.id,
+          paymentMethod: 'cash',
+          transactionDate: _date,
+          name: name,
+          memo: memo,
+        );
+      }
       ref.invalidate(currentCycleTransactionsProvider);
       ref.invalidate(availableBudgetProvider);
       if (mounted) Navigator.pop(context, true);
@@ -174,14 +209,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ),
 
-            Text('거래 추가', style: tt.headlineSmall),
+            Text(_isEditMode ? '거래 수정' : '거래 추가', style: tt.headlineSmall),
             const SizedBox(height: AppSpacing.lg),
 
             TransactionTypeToggle(
               isExpense: _isExpense,
               onChanged: (v) => setState(() {
                 _isExpense = v;
-                _category = null;
+                if (!_isEditMode) _category = null;
               }),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -196,6 +231,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
             AmountTextField(
               label: '금액',
+              controller: _amountCtrl,
               focusNode: _amountFocus,
               onChanged: (v) => _amount = v,
             ),
@@ -203,7 +239,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
             _CategoryField(
               expanded: _showCategoryPicker,
-              selected: _category,
+              selected: _category ?? widget.initialItem?.category,
               isExpense: _isExpense,
               accentColor: accent,
               onToggle: _openCategory,
@@ -234,7 +270,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             const SizedBox(height: AppSpacing.xl),
 
             _AccentButton(
-              label: '저장',
+              label: _isEditMode ? '수정 완료' : '저장',
               loading: _loading,
               color: accent,
               onPressed: _submit,

@@ -42,6 +42,27 @@ class TransactionRepository {
     return TransactionModel.fromJson(res.data!);
   }
 
+  Future<TransactionModel> update(
+    int id, {
+    int? amount,
+    int? categoryId,
+    DateTime? transactionDate,
+    String? name,
+    String? memo,
+  }) async {
+    final data = <String, dynamic>{
+      if (amount != null) 'amount': amount,
+      if (categoryId != null) 'category_id': categoryId,
+      if (transactionDate != null)
+        'transaction_date':
+            '${transactionDate.year.toString().padLeft(4, '0')}-${transactionDate.month.toString().padLeft(2, '0')}-${transactionDate.day.toString().padLeft(2, '0')}',
+      if (name != null) 'name': name,
+      if (memo != null) 'memo': memo,
+    };
+    final res = await _dio.patch<Map<String, dynamic>>('/transactions/$id', data: data);
+    return TransactionModel.fromJson(res.data!);
+  }
+
   Future<void> delete(int id) async {
     await _dio.delete('/transactions/$id');
   }

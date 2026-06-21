@@ -15,6 +15,7 @@ class TransactionItem {
     required this.date,
     required this.category,
     this.isPending = false,    // 청구 예정
+    this.isFixed = false,      // 고정 지출/수입 여부
     this.memo,
   });
 
@@ -24,6 +25,7 @@ class TransactionItem {
   final DateTime date;
   final CategoryItem category;
   final bool isPending;
+  final bool isFixed;
   final String? memo;
 
   bool get isIncome => amount > 0;
