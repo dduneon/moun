@@ -8,6 +8,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/settings/presentation/providers/settings_provider.dart';
+import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/glass_card.dart';
 
@@ -49,6 +50,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         await repo.createIncome(
           name: e.name,
           amount: e.amount.toDouble(),
+          scheduledDay: e.scheduledDay,
         );
       }
 
@@ -216,9 +218,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 // ── Step 1: 고정 수입 ──────────────────────────────────────
 
 class _IncomeEntry {
-  _IncomeEntry({required this.name, required this.amount});
+  _IncomeEntry({required this.name, required this.amount, required this.scheduledDay});
   String name;
   int amount;
+  int scheduledDay;
 }
 
 class _Step2 extends StatefulWidget {
@@ -234,16 +237,20 @@ class _Step2State extends State<_Step2> {
   final fmt = NumberFormat('#,###');
 
   void _add() async {
-    final result = await showModalBottomSheet<_IncomeEntry>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _AddIncomeSheet(),
+    await AppBottomSheet.show(
+      context,
+      title: '고정 수입 추가',
+      child: _AddIncomeForm(
+        onSave: (name, amount, scheduledDay) {
+          widget.incomes.add(_IncomeEntry(
+            name: name,
+            amount: amount,
+            scheduledDay: scheduledDay,
+          ));
+          widget.onChanged();
+        },
+      ),
     );
-    if (result != null) {
-      widget.incomes.add(result);
-      widget.onChanged();
-    }
   }
 
   @override
@@ -521,18 +528,25 @@ class _EntryCard extends StatelessWidget {
   }
 }
 
-// ── 고정 수입 추가 시트 ───────────────────────────────────────
+// ── 고정 수입 추가 폼 ─────────────────────────────────────────
 
-class _AddIncomeSheet extends StatefulWidget {
-  const _AddIncomeSheet();
+class _AddIncomeForm extends StatefulWidget {
+  const _AddIncomeForm({required this.onSave});
+  final void Function(String name, int amount, int scheduledDay) onSave;
 
   @override
-  State<_AddIncomeSheet> createState() => _AddIncomeSheetState();
+  State<_AddIncomeForm> createState() => _AddIncomeFormState();
 }
 
-class _AddIncomeSheetState extends State<_AddIncomeSheet> {
+class _AddIncomeFormState extends State<_AddIncomeForm> {
   final _nameCtrl = TextEditingController();
   int _amount = 0;
+  int? _scheduledDay;
+
+  bool get _canSave =>
+      _nameCtrl.text.trim().isNotEmpty &&
+      _amount > 0 &&
+      _scheduledDay != null;
 
   @override
   void initState() {
@@ -549,58 +563,53 @@ class _AddIncomeSheetState extends State<_AddIncomeSheet> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final bottomPadding = MediaQuery.of(context).viewInsets.bottom +
-        MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
-          AppSpacing.xl + bottomPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('고정 수입 추가', style: tt.titleLarge),
-          const SizedBox(height: AppSpacing.lg),
-          AppTextField(
-            controller: _nameCtrl,
-            label: '이름',
-            hint: '월급, 부업, 임대료 등',
-            autofocus: true,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppTextField(
+          controller: _nameCtrl,
+          label: '이름',
+          hint: '월급, 부업, 임대료 등',
+          autofocus: true,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AmountTextField(
+          label: '예상 금액',
+          onChanged: (v) => setState(() => _amount = v),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _InlineDayPicker(
+          label: '받는 날',
+          value: _scheduledDay,
+          onChanged: (v) => setState(() => _scheduledDay = v),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        ElevatedButton(
+          onPressed: _canSave
+              ? () {
+                  widget.onSave(
+                    _nameCtrl.text.trim(),
+                    _amount,
+                    _scheduledDay!,
+                  );
+                  Navigator.pop(context);
+                }
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.income,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppColors.income.withValues(alpha: 0.35),
+            disabledForegroundColor: Colors.white70,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.buttonBorderRadius),
           ),
-          const SizedBox(height: AppSpacing.md),
-          AmountTextField(
-            label: '예상 금액',
-            onChanged: (v) => setState(() => _amount = v),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          ElevatedButton(
-            onPressed: _nameCtrl.text.trim().isEmpty || _amount <= 0
-                ? null
-                : () {
-                    Navigator.pop(
-                        context,
-                        _IncomeEntry(
-                          name: _nameCtrl.text.trim(),
-                          amount: _amount,
-                        ));
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.income,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.buttonBorderRadius),
-            ),
-            child: Text('추가', style: tt.labelLarge),
-          ),
-        ],
-      ),
+          child: Text('추가', style: tt.labelLarge),
+        ),
+      ],
     );
   }
 }
