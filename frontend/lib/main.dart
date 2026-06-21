@@ -16,6 +16,9 @@ const _showDesignShowcase = false;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   KakaoSdk.init(nativeAppKey: '5d562dc375f809d620ab936174d3d3d0');
+  final keyHash = await KakaoSdk.origin;
+  // ignore: avoid_print
+  print('[Kakao] key hash: $keyHash');
   await initializeDateFormatting('ko');
   runApp(
     ProviderScope(
