@@ -182,7 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             const SizedBox(height: 4),
                             AmountDisplay(
-                              amount: -budget.fixedExpense.round(),
+                              amount: -budget.totalFixedExpense.round(),
                               size: AmountSize.small,
                             ),
                           ],
@@ -226,32 +226,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     calendarData[day] = DayData(income: income, expense: expense);
                   });
 
-                  // 고정 수입: 보여지는 달의 scheduled_day에 표시
+                  // 고정 수입: 예정(미래) 항목만 캘린더에 추가 (과거는 실제 transaction이 txByDay에 존재)
                   for (final fi in fixedIncomes) {
                     if (fi.scheduledDay == null) continue;
-                    final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
-                    // 미래 달이거나, 같은 달인데 오늘 이후면 예정
                     final isPending = isFutureMonth || fi.scheduledDay! > now.day;
+                    if (!isPending) continue;
+                    final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
                     final amt = fi.expectedAmount.round();
                     final prev = calendarData[day] ?? const DayData();
                     calendarData[day] = DayData(
                       income: prev.income + amt,
                       expense: prev.expense,
-                      hasPending: prev.hasPending || isPending,
+                      hasPending: true,
                     );
                   }
 
-                  // 고정 지출: 보여지는 달의 billingDay에 표시
+                  // 고정 지출: monthly + 예정 항목만 캘린더에 추가
                   for (final fe in fixedExpenses) {
                     if (!fe.isActive) continue;
-                    final day = DateTime(vm.year, vm.month, fe.billingDay);
-                    final isPending = isFutureMonth || fe.billingDay > now.day;
+                    if (fe.billingDay == null) continue;
+                    final billingDay = fe.billingDay!;
+                    final isPending = isFutureMonth || billingDay > now.day;
+                    if (!isPending) continue;
+                    final day = DateTime(vm.year, vm.month, billingDay);
                     final amt = fe.amount.round();
                     final prev = calendarData[day] ?? const DayData();
                     calendarData[day] = DayData(
                       income: prev.income,
                       expense: prev.expense + amt,
-                      hasPending: prev.hasPending || isPending,
+                      hasPending: true,
                     );
                   }
 
@@ -263,9 +266,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     for (final fi in fixedIncomes) {
                       if (fi.scheduledDay == null) continue;
+                      final isPending = isFutureMonth || fi.scheduledDay! > now.day;
+                      if (!isPending) continue; // 과거: 실제 transaction이 real 목록에 존재
                       final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
                       if (_isSameDay(day, _selectedDay!)) {
-                        final isPending = isFutureMonth || fi.scheduledDay! > now.day;
                         pseudo.add(TransactionItem(
                           id: -fi.id,
                           name: fi.name,
@@ -277,7 +281,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             icon: Icons.trending_up_rounded,
                             color: AppColors.income,
                           ),
-                          isPending: isPending,
+                          isPending: true,
                           isFixed: true,
                         ));
                       }
@@ -285,9 +289,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     for (final fe in fixedExpenses) {
                       if (!fe.isActive) continue;
-                      final day = DateTime(vm.year, vm.month, fe.billingDay);
+                      if (fe.billingDay == null) continue;
+                      final billingDay = fe.billingDay!;
+                      final isPending = isFutureMonth || billingDay > now.day;
+                      if (!isPending) continue; // 과거: 실제 transaction이 real 목록에 존재
+                      final day = DateTime(vm.year, vm.month, billingDay);
                       if (_isSameDay(day, _selectedDay!)) {
-                        final isPending = isFutureMonth || fe.billingDay > now.day;
                         pseudo.add(TransactionItem(
                           id: -fe.id - 100000,
                           name: fe.name,
@@ -299,7 +306,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             icon: Icons.repeat_rounded,
                             color: AppColors.expensePending,
                           ),
-                          isPending: isPending,
+                          isPending: true,
                           isFixed: true,
                         ));
                       }
@@ -705,7 +712,8 @@ class _TransactionActionSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        if (item.isFixed) ...[
+        if (item.id < 0) ...[
+          // 예정 항목 (아직 날짜 안 됨 — pseudo)
           Container(
             padding: const EdgeInsets.symmetric(
                 vertical: AppSpacing.md, horizontal: AppSpacing.md),
@@ -722,13 +730,13 @@ class _TransactionActionSheet extends StatelessWidget {
                     color: AppColors.textSecondary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.info_outline_rounded,
+                  child: const Icon(Icons.schedule_rounded,
                       size: 18, color: AppColors.textSecondary),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    '고정 지출/수입은 설정에서 수정할 수 있어요',
+                    '예정된 항목이에요. 날짜가 지나면 거래 내역에 자동 기록돼요.',
                     style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
                   ),
                 ),
@@ -736,6 +744,7 @@ class _TransactionActionSheet extends StatelessWidget {
             ),
           ),
         ] else ...[
+          // 실제 transaction (고정 수입/지출 포함) — 수정/삭제 가능
           _SheetAction(
             icon: Icons.edit_rounded,
             iconColor: AppColors.primary,

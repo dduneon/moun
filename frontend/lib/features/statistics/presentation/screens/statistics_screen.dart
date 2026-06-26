@@ -264,9 +264,10 @@ class _CycleCompareTab extends ConsumerWidget {
                       }
                       final barData = budgets.map((b) => MonthlyBarData(
                             label: '${b.startDate.month}월',
-                            income: b.expectedIncome.round(),
-                            expense: b.totalSpent.round(),
-                            fixedExpense: b.fixedExpense.round(),
+                            income: b.confirmedIncome.round(),
+                            pendingIncome: (b.expectedIncome - b.confirmedIncome).clamp(0, double.infinity).round(),
+                            expense: b.variableExpense.round(),
+                            fixedExpense: b.totalFixedExpense.round(),
                           )).toList();
                       return MonthlyBarChart(data: barData);
                     },

@@ -395,7 +395,29 @@ class _TransactionRow extends StatelessWidget {
                 Text(item.name,
                     style: tt.bodyMedium
                         ?.copyWith(fontWeight: FontWeight.w500)),
-                Text(item.category.label, style: tt.labelSmall),
+                Row(
+                  children: [
+                    Text(item.category.label, style: tt.labelSmall),
+                    if (item.isFixed) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (item.isIncome ? AppColors.income : AppColors.expensePending)
+                              .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item.isIncome ? '고정 수입' : '고정 지출',
+                          style: tt.labelSmall?.copyWith(
+                            fontSize: 10,
+                            color: item.isIncome ? AppColors.income : AppColors.expensePending,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),

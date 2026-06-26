@@ -12,6 +12,8 @@ class TransactionModel {
     required this.transactionDate,
     required this.billingDate,
     this.memo,
+    this.sourceIncomeId,
+    this.sourceFixedExpenseId,
   });
 
   final int id;
@@ -23,8 +25,12 @@ class TransactionModel {
   final DateTime transactionDate;
   final DateTime billingDate;
   final String? memo;
+  final int? sourceIncomeId;
+  final int? sourceFixedExpenseId;
 
   bool get isIncome => amount > 0;
+  bool get isFromFixedSchedule =>
+      sourceIncomeId != null || sourceFixedExpenseId != null;
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) =>
       TransactionModel(
@@ -38,5 +44,7 @@ class TransactionModel {
             DateTime.parse(json['transaction_date'] as String),
         billingDate: DateTime.parse(json['billing_date'] as String),
         memo: json['memo'] as String?,
+        sourceIncomeId: json['source_income_id'] as int?,
+        sourceFixedExpenseId: json['source_fixed_expense_id'] as int?,
       );
 }

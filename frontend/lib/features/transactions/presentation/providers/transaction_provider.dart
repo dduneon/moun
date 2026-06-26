@@ -42,6 +42,7 @@ final transactionItemsProvider =
       date: t.transactionDate,
       category: cat,
       memo: t.memo,
+      isFixed: t.isFromFixedSchedule,
     );
   }).toList();
 });

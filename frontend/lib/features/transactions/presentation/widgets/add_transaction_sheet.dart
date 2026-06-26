@@ -104,12 +104,15 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     });
   }
 
-  static const _incomeNames = {'급여', '부업', '투자', '기타수입'};
+  static const _incomeNames = {'급여', '부업', '투자', '기타수입', '수입'};
+  static const _systemNames = {'고정지출'};
 
   List<CategoryItem> _filterCategories(List<CategoryItem> all) => all
-      .where((c) => _isExpense
-          ? !_incomeNames.contains(c.label)
-          : _incomeNames.contains(c.label))
+      .where((c) => _systemNames.contains(c.label)
+          ? false
+          : _isExpense
+              ? !_incomeNames.contains(c.label)
+              : _incomeNames.contains(c.label))
       .toList();
 
   Color get _accentColor => _isExpense ? AppColors.expense : AppColors.income;

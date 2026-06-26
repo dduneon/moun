@@ -83,6 +83,7 @@ class AvailableBudget {
     required this.confirmedIncome,
     required this.expectedIncome,
     required this.fixedExpense,
+    required this.confirmedFixedExpense,
     required this.billedTransactions,
     required this.available,
     required this.spendSummary,
@@ -94,13 +95,16 @@ class AvailableBudget {
   final String label;
   final double confirmedIncome;
   final double expectedIncome;
-  final double fixedExpense;
+  final double fixedExpense;           // 미청구 예정 고정지출
+  final double confirmedFixedExpense;  // 이미 실행된 고정지출
   final double billedTransactions;
   final double available;
   final SpendSummary spendSummary;
   final BillingSummary billingSummary;
 
   double get totalSpent => spendSummary.totalSpend.abs();
+  double get totalFixedExpense => confirmedFixedExpense.abs() + fixedExpense;
+  double get variableExpense => (totalSpent - confirmedFixedExpense.abs()).clamp(0, double.infinity);
   bool get hasPendingIncome => confirmedIncome < expectedIncome;
 
   factory AvailableBudget.fromJson(Map<String, dynamic> json) => AvailableBudget(
@@ -110,6 +114,7 @@ class AvailableBudget {
         confirmedIncome: double.parse(json['confirmed_income'].toString()),
         expectedIncome: double.parse(json['expected_income'].toString()),
         fixedExpense: double.parse(json['fixed_expense'].toString()),
+        confirmedFixedExpense: double.parse(json['confirmed_fixed_expense'].toString()),
         billedTransactions: double.parse(json['billed_transactions'].toString()),
         available: double.parse(json['available'].toString()),
         spendSummary: SpendSummary.fromJson(
