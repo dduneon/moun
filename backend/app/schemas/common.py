@@ -6,25 +6,29 @@ from typing import Optional
 from pydantic import BaseModel
 
 from app.models.fixed_expense import PaymentMethod
+from app.models.income import Frequency
 
 
 # ── Income ────────────────────────────────────────────────────────────────────
 
 class IncomeCreate(BaseModel):
     name: str
-    scheduled_day: Optional[int] = None
+    frequency: Frequency = Frequency.monthly
+    scheduled_day: Optional[int] = None   # monthly용 (1~31)
+    day_of_week: Optional[int] = None     # weekly/biweekly용 (0=월~6=일)
     expected_amount: Optional[Decimal] = None
-    actual_amount: Optional[Decimal] = None
-    received_date: Optional[date] = None
+    category_id: Optional[int] = None
+    include_current_cycle: bool = True
 
 
 class IncomeResponse(BaseModel):
     id: int
     name: str
+    frequency: Frequency
     scheduled_day: Optional[int]
+    day_of_week: Optional[int]
     expected_amount: Optional[Decimal]
-    actual_amount: Optional[Decimal]
-    received_date: Optional[date]
+    category_id: Optional[int]
     group_id: Optional[int]
     effective_from: date
     end_date: Optional[date]
@@ -34,10 +38,11 @@ class IncomeResponse(BaseModel):
 
 class IncomePatch(BaseModel):
     name: Optional[str] = None
+    frequency: Optional[Frequency] = None
     scheduled_day: Optional[int] = None
+    day_of_week: Optional[int] = None
     expected_amount: Optional[Decimal] = None
-    actual_amount: Optional[Decimal] = None
-    received_date: Optional[date] = None
+    category_id: Optional[int] = None
     effective_from: Optional[date] = None  # 새 버전 생성 시 지정
 
 
@@ -51,7 +56,12 @@ class FixedExpenseCreate(BaseModel):
     name: str
     amount: Decimal
     payment_method: PaymentMethod
-    billing_day: int
+    frequency: Frequency = Frequency.monthly
+    billing_day: Optional[int] = None     # monthly용 (1~31)
+    day_of_week: Optional[int] = None     # weekly/biweekly용 (0=월~6=일)
+    card_id: Optional[int] = None
+    category_id: Optional[int] = None
+    include_current_cycle: bool = True
 
 
 class FixedExpenseResponse(BaseModel):
@@ -59,7 +69,11 @@ class FixedExpenseResponse(BaseModel):
     name: str
     amount: Decimal
     payment_method: PaymentMethod
-    billing_day: int
+    frequency: Frequency
+    billing_day: Optional[int]
+    day_of_week: Optional[int]
+    card_id: Optional[int]
+    category_id: Optional[int]
     is_active: bool
     group_id: Optional[int]
     effective_from: date
@@ -72,7 +86,11 @@ class FixedExpensePatch(BaseModel):
     name: Optional[str] = None
     amount: Optional[Decimal] = None
     payment_method: Optional[PaymentMethod] = None
+    frequency: Optional[Frequency] = None
     billing_day: Optional[int] = None
+    day_of_week: Optional[int] = None
+    card_id: Optional[int] = None
+    category_id: Optional[int] = None
     is_active: Optional[bool] = None
     effective_from: Optional[date] = None  # 새 버전 생성 시 지정
 
@@ -125,6 +143,9 @@ class TransactionResponse(BaseModel):
     billing_date: date
     memo: Optional[str]
     receipt_image_url: Optional[str]
+    source_income_id: Optional[int]
+    source_fixed_expense_id: Optional[int]
+    is_excluded: bool = False
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -133,4 +154,5 @@ class TransactionPatch(BaseModel):
     name: Optional[str] = None
     amount: Optional[Decimal] = None
     category_id: Optional[int] = None
+    transaction_date: Optional[date] = None
     memo: Optional[str] = None
