@@ -10,7 +10,7 @@ import '../../../../shared/widgets/gradient_background.dart';
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
-  static const String _version = '1.1.0-beta';
+  static const String version = '1.1.0-beta';
   static const String _buildNumber = '2';
 
   @override
@@ -72,7 +72,7 @@ class AppInfoScreen extends StatelessWidget {
                       Text('모운', style: tt.headlineSmall),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        'v$_version ($_buildNumber)',
+                        'v$version ($_buildNumber)',
                         style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
                       ),
                     ],

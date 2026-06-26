@@ -10,6 +10,7 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../providers/settings_provider.dart';
+import 'app_info_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -146,7 +147,7 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icons.info_outline_rounded,
                       iconColor: AppColors.textSecondary,
                       label: '버전 정보',
-                      value: 'v1.0.0',
+                      value: 'v${AppInfoScreen.version}',
                       onTap: () => context.push('/settings/app-info'),
                     ),
                   ],
