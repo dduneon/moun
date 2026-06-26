@@ -65,17 +65,22 @@ def test_billing_summary_uses_billing_date(db: Session, user: User):
 
 
 def test_available_budget_full_calculation(db: Session, user: User):
-    db.add(Income(user_id=user.id, name="월급", actual_amount=Decimal(3_000_000),
-                  received_date=date(2026, 6, 10)))
-    db.add(Income(user_id=user.id, name="프리랜싱", actual_amount=Decimal(500_000),
-                  received_date=date(2026, 6, 20)))
+    # 과거 날짜 → 자동으로 transaction 생성됨 (오늘=2026-06-24 기준)
+    db.add(Income(user_id=user.id, name="월급", scheduled_day=10,
+                  expected_amount=Decimal(3_000_000)))
+    db.add(Income(user_id=user.id, name="프리랜싱", scheduled_day=20,
+                  expected_amount=Decimal(500_000)))
     db.add(FixedExpense(user_id=user.id, name="넷플릭스", amount=Decimal(17_000),
-                        payment_method=PaymentMethod.card, billing_day=5))
+                        payment_method=PaymentMethod.cash, billing_day=5))
     cat = _add_category(db, user)
     _add_transaction(db, user, cat, date(2026, 6, 15), date(2026, 6, 15), -100_000)
-    db.flush()
+    db.commit()
 
+    # scheduled_day 10, 20, 5 모두 오늘(24일) 이전 → 자동 생성 포함
     r = get_available_budget(db, user.id, START, END)
+    # 자동 생성된 수입 2건 + 수동 수입 없음
     assert r.confirmed_income == Decimal(3_500_000)
     assert r.expected_income == Decimal(3_500_000)
+    # pending_fixed_expense = 0 (6/5 이미 지남), billed = -17000(자동) + -100000(수동)
+    assert r.fixed_expense == Decimal(0)
     assert r.available == Decimal(3_500_000) - Decimal(17_000) - Decimal(100_000)

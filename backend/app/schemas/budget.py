@@ -34,7 +34,8 @@ class AvailableBudget(BaseModel):
     label: str
     confirmed_income: Decimal
     expected_income: Decimal
-    fixed_expense: Decimal
+    fixed_expense: Decimal           # 미청구 예정 고정지출
+    confirmed_fixed_expense: Decimal  # 이미 실행된 고정지출 트랜잭션 합계
     billed_transactions: Decimal
     available: Decimal
     spend_summary: SpendSummary

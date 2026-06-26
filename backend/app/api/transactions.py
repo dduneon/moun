@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.core.billing import calculate_billing_date
 from app.core.budget_cycle import get_current_cycle
 from app.core.deps import DbDep, UserDep
+from app.core.schedule_generator import materialize_scheduled_items
 from app.models.card import Card
 from app.models.fixed_expense import PaymentMethod
 from app.models.transaction import Transaction
@@ -28,18 +29,19 @@ def list_transactions(
     start_date: date | None = None,
     end_date: date | None = None,
 ):
-    q = select(Transaction).where(Transaction.user_id == user.id)
-    if start_date is not None:
-        q = q.where(Transaction.transaction_date >= start_date)
-    if end_date is not None:
-        q = q.where(Transaction.transaction_date <= end_date)
-    # 날짜 미지정 시 현재 사이클 범위 기본값
-    if start_date is None and end_date is None:
-        c = get_current_cycle(user.salary_day)
-        q = q.where(
-            Transaction.transaction_date >= c.start,
-            Transaction.transaction_date <= c.end,
-        )
+    c = get_current_cycle(user.salary_day)
+    cycle_start = start_date if start_date is not None else c.start
+    cycle_end = end_date if end_date is not None else c.end
+
+    # 날짜가 지난 고정 수입/지출 → 자동으로 transaction 생성
+    materialize_scheduled_items(db, user.id, cycle_start, cycle_end)
+
+    q = select(Transaction).where(
+        Transaction.user_id == user.id,
+        Transaction.transaction_date >= cycle_start,
+        Transaction.transaction_date <= cycle_end,
+        Transaction.is_excluded.is_(False),
+    )
     return db.scalars(q.order_by(Transaction.transaction_date.desc())).all()
 
 
@@ -80,7 +82,14 @@ def get_transaction(txn_id: int, db: DbDep, user: UserDep):
 @router.patch("/{txn_id}", response_model=TransactionResponse)
 def patch_transaction(txn_id: int, body: TransactionPatch, db: DbDep, user: UserDep):
     obj = _get_or_404(db, user.id, txn_id)
-    for field, value in body.model_dump(exclude_unset=True).items():
+    fields = body.model_dump(exclude_unset=True)
+
+    if "transaction_date" in fields:
+        obj.transaction_date = fields.pop("transaction_date")
+        card = db.scalar(select(Card).where(Card.id == obj.card_id)) if obj.card_id else None
+        obj.billing_date = calculate_billing_date(obj.transaction_date, obj.payment_method, card)
+
+    for field, value in fields.items():
         setattr(obj, field, value)
     db.commit()
     db.refresh(obj)
@@ -90,5 +99,10 @@ def patch_transaction(txn_id: int, body: TransactionPatch, db: DbDep, user: User
 @router.delete("/{txn_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_transaction(txn_id: int, db: DbDep, user: UserDep):
     obj = _get_or_404(db, user.id, txn_id)
-    db.delete(obj)
-    db.commit()
+    if obj.source_income_id is not None or obj.source_fixed_expense_id is not None:
+        # 고정 수입/지출 자동 생성 항목 → soft-delete (재생성 방지)
+        obj.is_excluded = True
+        db.commit()
+    else:
+        db.delete(obj)
+        db.commit()

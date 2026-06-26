@@ -1,10 +1,11 @@
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete as sql_delete, select
 
 from app.core.deps import DbDep, UserDep
 from app.models.fixed_expense import FixedExpense
+from app.models.transaction import Transaction
 from app.schemas.common import FixedExpenseCreate, FixedExpenseDelete, FixedExpensePatch, FixedExpenseResponse
 
 router = APIRouter(prefix="/fixed-expenses", tags=["fixed-expenses"])
@@ -49,14 +50,22 @@ def list_fixed_expenses(db: DbDep, user: UserDep, month: date | None = None):
 
 @router.post("", response_model=FixedExpenseResponse, status_code=status.HTTP_201_CREATED)
 def create_fixed_expense(body: FixedExpenseCreate, db: DbDep, user: UserDep):
-    obj = FixedExpense(
-        user_id=user.id,
-        effective_from=date.today().replace(day=1),
-        **body.model_dump(),
-    )
+    today = date.today()
+    fields = body.model_dump(exclude={"include_current_cycle"})
+
+    # 이번 달 billing_day가 이미 지났는데 이번 달 포함 안 할 경우 → 다음 달부터 추적
+    if not body.include_current_cycle:
+        next_month = (date(today.year, today.month + 1, 1)
+                      if today.month < 12
+                      else date(today.year + 1, 1, 1))
+        effective_from = next_month
+    else:
+        effective_from = today.replace(day=1)
+
+    obj = FixedExpense(user_id=user.id, effective_from=effective_from, **fields)
     db.add(obj)
     db.flush()
-    obj.group_id = obj.id  # 첫 버전은 자기 자신이 그룹 대표
+    obj.group_id = obj.id
     db.commit()
     db.refresh(obj)
     return obj
@@ -98,7 +107,9 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
     base_name = current.name
     base_amount = current.amount
     base_payment_method = current.payment_method
+    base_frequency = current.frequency
     base_billing_day = current.billing_day
+    base_day_of_week = current.day_of_week
 
     for row in later_rows:
         db.delete(row)
@@ -109,7 +120,9 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
         name=fields.get("name", base_name),
         amount=fields.get("amount", base_amount),
         payment_method=fields.get("payment_method", base_payment_method),
+        frequency=fields.get("frequency", base_frequency),
         billing_day=fields.get("billing_day", base_billing_day),
+        day_of_week=fields.get("day_of_week", base_day_of_week),
         group_id=group_id,
         effective_from=effective_from,
         is_active=True,
@@ -130,13 +143,25 @@ def delete_fixed_expense(obj_id: int, body: FixedExpenseDelete, db: DbDep, user:
             FixedExpense.group_id == group_id,
         )
     ).all()
+    expense_ids = [r.id for r in rows]
+
     if body.end_from is None:
-        # 전체 삭제
+        # 전체 삭제: 자동 생성된 트랜잭션도 함께 삭제
+        db.execute(
+            sql_delete(Transaction).where(
+                Transaction.source_fixed_expense_id.in_(expense_ids)
+            )
+        )
         for row in rows:
-            row.is_active = False
-            row.end_date = date.today().replace(day=1)
+            db.delete(row)
     else:
-        # 소프트 삭제: 모든 버전에 end_date 설정
+        # 소프트 삭제: end_from 이후 자동 생성 트랜잭션 삭제
+        db.execute(
+            sql_delete(Transaction).where(
+                Transaction.source_fixed_expense_id.in_(expense_ids),
+                Transaction.transaction_date >= body.end_from,
+            )
+        )
         for row in rows:
             row.end_date = body.end_from
     db.commit()

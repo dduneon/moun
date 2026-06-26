@@ -54,8 +54,10 @@ def get_prev_cycle(salary_day: int) -> CycleBounds:
     return get_cycle_bounds(current.start - timedelta(days=1), salary_day)
 
 
-def get_recent_cycles(salary_day: int, count: int = 6) -> list[CycleBounds]:
-    """최근 count개의 사이클을 오래된 순으로 반환한다."""
+def get_recent_cycles(salary_day: int, count: int = 6, joined_date: date | None = None) -> list[CycleBounds]:
+    """최근 최대 count개의 사이클을 오래된 순으로 반환한다.
+    joined_date가 주어지면 해당 날짜가 속한 사이클부터 시작한다.
+    """
     from datetime import timedelta
     cycles: list[CycleBounds] = []
     current = get_current_cycle(salary_day)
@@ -64,4 +66,9 @@ def get_recent_cycles(salary_day: int, count: int = 6) -> list[CycleBounds]:
         c = get_cycle_bounds(ref, salary_day)
         cycles.append(c)
         ref = c.start - timedelta(days=1)
+
+    if joined_date is not None:
+        joined_cycle_start = get_cycle_bounds(joined_date, salary_day).start
+        cycles = [c for c in cycles if c.start >= joined_cycle_start]
+
     return list(reversed(cycles))

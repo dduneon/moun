@@ -16,7 +16,8 @@ def current_cycle(user: UserDep):
 
 @router.get("", response_model=list[CycleBoundsResponse])
 def list_cycles(user: UserDep, count: int = 6):
-    cycles = get_recent_cycles(user.salary_day, count)
+    joined = user.created_at.date() if user.created_at else None
+    cycles = get_recent_cycles(user.salary_day, count, joined_date=joined)
     return [CycleBoundsResponse(start_date=c.start, end_date=c.end, label=c.label) for c in cycles]
 
 

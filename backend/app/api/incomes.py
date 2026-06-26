@@ -1,10 +1,11 @@
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete as sql_delete, select
 
 from app.core.deps import DbDep, UserDep
 from app.models.income import Income
+from app.models.transaction import Transaction
 from app.schemas.common import IncomeCreate, IncomeDelete, IncomePatch, IncomeResponse
 
 router = APIRouter(prefix="/incomes", tags=["incomes"])
@@ -48,11 +49,19 @@ def list_incomes(db: DbDep, user: UserDep, month: date | None = None):
 
 @router.post("", response_model=IncomeResponse, status_code=status.HTTP_201_CREATED)
 def create_income(body: IncomeCreate, db: DbDep, user: UserDep):
-    obj = Income(
-        user_id=user.id,
-        effective_from=date.today().replace(day=1),
-        **body.model_dump(),
-    )
+    today = date.today()
+    fields = body.model_dump(exclude={"include_current_cycle"})
+
+    # 이번 달 scheduled_day가 이미 지났는데 이번 달 포함 안 할 경우 → 다음 달부터 추적
+    if not body.include_current_cycle:
+        next_month = (today.replace(day=1).replace(month=today.month % 12 + 1)
+                      if today.month < 12
+                      else date(today.year + 1, 1, 1))
+        effective_from = next_month
+    else:
+        effective_from = today.replace(day=1)
+
+    obj = Income(user_id=user.id, effective_from=effective_from, **fields)
     db.add(obj)
     db.flush()
     obj.group_id = obj.id
@@ -97,10 +106,11 @@ def patch_income(income_id: int, body: IncomePatch, db: DbDep, user: UserDep):
 
     # 삭제 전 기준값 스냅샷 (current 가 later_rows 에 포함될 수 있으므로 미리 저장)
     base_name = current.name
+    base_frequency = current.frequency
     base_scheduled_day = current.scheduled_day
+    base_day_of_week = current.day_of_week
     base_expected_amount = current.expected_amount
-    base_actual_amount = current.actual_amount
-    base_received_date = current.received_date
+    base_category_id = current.category_id
 
     for row in later_rows:
         db.delete(row)
@@ -109,10 +119,11 @@ def patch_income(income_id: int, body: IncomePatch, db: DbDep, user: UserDep):
     new_obj = Income(
         user_id=user.id,
         name=fields.get("name", base_name),
+        frequency=fields.get("frequency", base_frequency),
         scheduled_day=fields.get("scheduled_day", base_scheduled_day),
+        day_of_week=fields.get("day_of_week", base_day_of_week),
         expected_amount=fields.get("expected_amount", base_expected_amount),
-        actual_amount=base_actual_amount,
-        received_date=base_received_date,
+        category_id=fields.get("category_id", base_category_id),
         group_id=group_id,
         effective_from=effective_from,
     )
@@ -132,12 +143,25 @@ def delete_income(income_id: int, body: IncomeDelete, db: DbDep, user: UserDep):
             Income.group_id == group_id,
         )
     ).all()
+    income_ids = [r.id for r in rows]
+
     if body.end_from is None:
-        # 전체 삭제
+        # 전체 삭제: 자동 생성된 트랜잭션도 함께 삭제
+        db.execute(
+            sql_delete(Transaction).where(
+                Transaction.source_income_id.in_(income_ids)
+            )
+        )
         for row in rows:
             db.delete(row)
     else:
-        # 소프트 삭제: 모든 버전에 end_date 설정
+        # 소프트 삭제: end_from 이후 자동 생성 트랜잭션 삭제
+        db.execute(
+            sql_delete(Transaction).where(
+                Transaction.source_income_id.in_(income_ids),
+                Transaction.transaction_date >= body.end_from,
+            )
+        )
         for row in rows:
             row.end_date = body.end_from
     db.commit()
