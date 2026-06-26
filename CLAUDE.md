@@ -52,7 +52,7 @@ app/
     budget_calculator.py   # Core budget cycle math
     budget_cycle.py        # Cycle boundary helpers
     billing.py             # Fixed-expense billing logic
-    salary_confirmation.py # Salary payday adjustment (prev/next business day, holidays)
+    schedule_generator.py  # Materializes pending/scheduled income & expense items
   models/          # SQLAlchemy ORM models
   schemas/         # Pydantic request/response schemas
   api/             # Route handlers (one file per domain)
