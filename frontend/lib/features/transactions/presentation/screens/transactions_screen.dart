@@ -23,6 +23,7 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   Set<String> _filter = {'전체'};
+  bool _excludeFixed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -70,11 +71,60 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: SelectionChipGroup<String>(
-                items: const ['전체', '수입', '지출'],
-                labelOf: (s) => s,
-                selected: _filter,
-                onSelected: (v) => setState(() => _filter = v),
+              child: Row(
+                children: [
+                  SelectionChipGroup<String>(
+                    items: const ['전체', '수입', '지출'],
+                    labelOf: (s) => s,
+                    selected: _filter,
+                    onSelected: (v) => setState(() => _filter = v),
+                  ),
+                  const Spacer(),
+                  if (!_filter.contains('수입')) GestureDetector(
+                    onTap: () => setState(() => _excludeFixed = !_excludeFixed),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                      decoration: BoxDecoration(
+                        color: _excludeFixed
+                            ? AppColors.expensePending.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _excludeFixed
+                              ? AppColors.expensePending
+                              : AppColors.divider,
+                          width: _excludeFixed ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.repeat_rounded,
+                            size: 12,
+                            color: _excludeFixed
+                                ? AppColors.expensePending
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '고정 지출 제외',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: _excludeFixed
+                                  ? AppColors.expensePending
+                                  : AppColors.textSecondary,
+                              fontWeight: _excludeFixed
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ).animate(delay: 100.ms).fadeIn(),
           ),
@@ -120,11 +170,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     final result = Map.fromEntries(
       txByDay.entries.where((e) => !e.key.isAfter(todayKey)),
     );
-    if (_filter.contains('전체')) return result;
     return result.map((key, items) {
       final filtered = items.where((t) {
-        if (_filter.contains('수입')) return t.isIncome;
-        if (_filter.contains('지출')) return !t.isIncome;
+        if (!_filter.contains('전체')) {
+          if (_filter.contains('수입') && !t.isIncome) return false;
+          if (_filter.contains('지출') && t.isIncome) return false;
+        }
+        if (_excludeFixed && t.isFixed && !t.isIncome) return false;
         return true;
       }).toList();
       return MapEntry(key, filtered);

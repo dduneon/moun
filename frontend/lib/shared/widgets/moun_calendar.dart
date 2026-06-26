@@ -283,8 +283,12 @@ class _DayCell extends StatelessWidget {
   bool isSat(DateTime d) => d.weekday == 6;
 
   String _fmt(int v) {
-    if (v >= 10000000) return '${(v / 10000000).toStringAsFixed(0)}천만';
-    if (v >= 10000) return '${(v / 10000).toStringAsFixed(0)}만';
+    String _compact(double d, String unit) {
+      final s = d.toStringAsFixed(1);
+      return '${s.endsWith('.0') ? s.substring(0, s.length - 2) : s}$unit';
+    }
+    if (v >= 10000000) return _compact(v / 10000000, '천만');
+    if (v >= 10000) return _compact(v / 10000, '만');
     return _amtFmt.format(v);
   }
 }
