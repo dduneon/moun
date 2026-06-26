@@ -115,8 +115,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   Map<DateTime, List<TransactionItem>> _applyFilter(
       Map<DateTime, List<TransactionItem>> txByDay) {
-    if (_filter.contains('전체')) return txByDay;
-    return txByDay.map((key, items) {
+    final today = DateTime.now();
+    final todayKey = DateTime(today.year, today.month, today.day);
+    final result = Map.fromEntries(
+      txByDay.entries.where((e) => !e.key.isAfter(todayKey)),
+    );
+    if (_filter.contains('전체')) return result;
+    return result.map((key, items) {
       final filtered = items.where((t) {
         if (_filter.contains('수입')) return t.isIncome;
         if (_filter.contains('지출')) return !t.isIncome;
@@ -157,7 +162,7 @@ class _SummaryCard extends StatelessWidget {
                   size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 4),
               Text(
-                '${_dateFmt.format(cycle.startDate)} – ${_dateFmt.format(cycle.endDate)}',
+                '${_dateFmt.format(cycle.startDate)} – 오늘',
                 style: tt.labelSmall?.copyWith(color: AppColors.textSecondary),
               ),
             ],

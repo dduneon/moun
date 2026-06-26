@@ -38,6 +38,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  // 주어진 달에서 고정 항목의 발생 날짜 목록 계산 (백엔드 schedule_generator 로직과 동일)
+  List<DateTime> _occurrenceDatesForMonth(
+    DateTime month, {
+    required String frequency,
+    int? day,
+    int? dayOfWeek,
+    required DateTime effectiveFrom,
+  }) {
+    final year = month.year;
+    final mon = month.month;
+    final lastDay = DateTime(year, mon + 1, 0).day;
+    final monthStart = DateTime(year, mon, 1);
+    final monthEnd = DateTime(year, mon, lastDay);
+
+    if (frequency == 'monthly' && day != null) {
+      final actual = day.clamp(1, lastDay);
+      return [DateTime(year, mon, actual)];
+    }
+
+    if (frequency == 'weekly' && dayOfWeek != null) {
+      // Python: 0=Mon...6=Sun / Dart: 1=Mon...7=Sun
+      final dartDow = dayOfWeek % 7 + 1;
+      final result = <DateTime>[];
+      for (var d = 1; d <= lastDay; d++) {
+        final dt = DateTime(year, mon, d);
+        if (dt.weekday == dartDow) result.add(dt);
+      }
+      return result;
+    }
+
+    if (frequency == 'biweekly' && dayOfWeek != null) {
+      final dartDow = dayOfWeek % 7 + 1;
+      final anchorOffset = (dartDow - effectiveFrom.weekday) % 7;
+      var cur = effectiveFrom.add(Duration(days: anchorOffset));
+      // cur을 monthStart 이상으로 2주씩 전진
+      if (cur.isBefore(monthStart)) {
+        final weeks = ((monthStart.difference(cur).inDays) / 14).ceil();
+        cur = cur.add(Duration(days: weeks * 14));
+      }
+      final result = <DateTime>[];
+      while (!cur.isAfter(monthEnd)) {
+        result.add(cur);
+        cur = cur.add(const Duration(days: 14));
+      }
+      return result;
+    }
+
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -226,36 +276,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     calendarData[day] = DayData(income: income, expense: expense);
                   });
 
-                  // 고정 수입: 예정(미래) 항목만 캘린더에 추가 (과거는 실제 transaction이 txByDay에 존재)
+                  final today = DateTime(now.year, now.month, now.day);
+
+                  // 고정 수입: 이번 달 모든 발생일 추가 (과거는 txByDay에 실제 transaction 존재)
                   for (final fi in fixedIncomes) {
-                    if (fi.scheduledDay == null) continue;
-                    final isPending = isFutureMonth || fi.scheduledDay! > now.day;
-                    if (!isPending) continue;
-                    final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
-                    final amt = fi.expectedAmount.round();
-                    final prev = calendarData[day] ?? const DayData();
-                    calendarData[day] = DayData(
-                      income: prev.income + amt,
-                      expense: prev.expense,
-                      hasPending: true,
+                    final dates = _occurrenceDatesForMonth(
+                      vm,
+                      frequency: fi.frequency,
+                      day: fi.scheduledDay,
+                      dayOfWeek: fi.dayOfWeek,
+                      effectiveFrom: fi.effectiveFrom,
                     );
+                    for (final d in dates) {
+                      final isPending = isFutureMonth || d.isAfter(today);
+                      if (!isPending) continue;
+                      final amt = fi.expectedAmount.round();
+                      final prev = calendarData[d] ?? const DayData();
+                      calendarData[d] = DayData(
+                        income: prev.income + amt,
+                        expense: prev.expense,
+                        hasPending: true,
+                      );
+                    }
                   }
 
-                  // 고정 지출: monthly + 예정 항목만 캘린더에 추가
+                  // 고정 지출: 이번 달 모든 발생일 추가 (과거는 txByDay에 실제 transaction 존재)
                   for (final fe in fixedExpenses) {
                     if (!fe.isActive) continue;
-                    if (fe.billingDay == null) continue;
-                    final billingDay = fe.billingDay!;
-                    final isPending = isFutureMonth || billingDay > now.day;
-                    if (!isPending) continue;
-                    final day = DateTime(vm.year, vm.month, billingDay);
-                    final amt = fe.amount.round();
-                    final prev = calendarData[day] ?? const DayData();
-                    calendarData[day] = DayData(
-                      income: prev.income,
-                      expense: prev.expense + amt,
-                      hasPending: true,
+                    final dates = _occurrenceDatesForMonth(
+                      vm,
+                      frequency: fe.frequency,
+                      day: fe.billingDay,
+                      dayOfWeek: fe.dayOfWeek,
+                      effectiveFrom: fe.effectiveFrom,
                     );
+                    for (final d in dates) {
+                      final isPending = isFutureMonth || d.isAfter(today);
+                      if (!isPending) continue;
+                      final amt = fe.amount.round();
+                      final prev = calendarData[d] ?? const DayData();
+                      calendarData[d] = DayData(
+                        income: prev.income,
+                        expense: prev.expense + amt,
+                        hasPending: true,
+                      );
+                    }
                   }
 
                   // 선택한 날의 상세 항목
@@ -265,50 +330,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     final pseudo = <TransactionItem>[];
 
                     for (final fi in fixedIncomes) {
-                      if (fi.scheduledDay == null) continue;
-                      final isPending = isFutureMonth || fi.scheduledDay! > now.day;
-                      if (!isPending) continue; // 과거: 실제 transaction이 real 목록에 존재
-                      final day = DateTime(vm.year, vm.month, fi.scheduledDay!);
-                      if (_isSameDay(day, _selectedDay!)) {
-                        pseudo.add(TransactionItem(
-                          id: -fi.id,
-                          name: fi.name,
-                          amount: fi.expectedAmount.round(),
-                          date: day,
-                          category: const CategoryItem(
-                            id: 0,
-                            label: '고정 수입',
-                            icon: Icons.trending_up_rounded,
-                            color: AppColors.income,
-                          ),
-                          isPending: true,
-                          isFixed: true,
-                        ));
+                      final dates = _occurrenceDatesForMonth(
+                        vm,
+                        frequency: fi.frequency,
+                        day: fi.scheduledDay,
+                        dayOfWeek: fi.dayOfWeek,
+                        effectiveFrom: fi.effectiveFrom,
+                      );
+                      for (final d in dates) {
+                        final isPending = isFutureMonth || d.isAfter(today);
+                        if (!isPending) continue;
+                        if (_isSameDay(d, _selectedDay!)) {
+                          pseudo.add(TransactionItem(
+                            id: -fi.id,
+                            name: fi.name,
+                            amount: fi.expectedAmount.round(),
+                            date: d,
+                            category: const CategoryItem(
+                              id: 0,
+                              label: '고정 수입',
+                              icon: Icons.trending_up_rounded,
+                              color: AppColors.income,
+                            ),
+                            isPending: true,
+                            isFixed: true,
+                          ));
+                        }
                       }
                     }
 
                     for (final fe in fixedExpenses) {
                       if (!fe.isActive) continue;
-                      if (fe.billingDay == null) continue;
-                      final billingDay = fe.billingDay!;
-                      final isPending = isFutureMonth || billingDay > now.day;
-                      if (!isPending) continue; // 과거: 실제 transaction이 real 목록에 존재
-                      final day = DateTime(vm.year, vm.month, billingDay);
-                      if (_isSameDay(day, _selectedDay!)) {
-                        pseudo.add(TransactionItem(
-                          id: -fe.id - 100000,
-                          name: fe.name,
-                          amount: -fe.amount.round(),
-                          date: day,
-                          category: const CategoryItem(
-                            id: 0,
-                            label: '고정 지출',
-                            icon: Icons.repeat_rounded,
-                            color: AppColors.expensePending,
-                          ),
-                          isPending: true,
-                          isFixed: true,
-                        ));
+                      final dates = _occurrenceDatesForMonth(
+                        vm,
+                        frequency: fe.frequency,
+                        day: fe.billingDay,
+                        dayOfWeek: fe.dayOfWeek,
+                        effectiveFrom: fe.effectiveFrom,
+                      );
+                      for (final d in dates) {
+                        final isPending = isFutureMonth || d.isAfter(today);
+                        if (!isPending) continue;
+                        if (_isSameDay(d, _selectedDay!)) {
+                          pseudo.add(TransactionItem(
+                            id: -fe.id - 100000,
+                            name: fe.name,
+                            amount: -fe.amount.round(),
+                            date: d,
+                            category: const CategoryItem(
+                              id: 0,
+                              label: '고정 지출',
+                              icon: Icons.repeat_rounded,
+                              color: AppColors.expensePending,
+                            ),
+                            isPending: true,
+                            isFixed: true,
+                          ));
+                        }
                       }
                     }
 
