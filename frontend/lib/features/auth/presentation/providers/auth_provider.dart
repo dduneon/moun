@@ -22,12 +22,28 @@ class AuthNotifier extends Notifier<AuthState> {
   /// 앱 시작 시 저장된 토큰으로 세션 복원.
   Future<void> restoreSession() async {
     state = const AuthStateAuthenticating();
+
+    final refreshToken = await _storage.getRefreshToken();
+    if (refreshToken == null) {
+      state = const AuthStateUnauthenticated();
+      return;
+    }
+
+    // access token이 만료됐을 수 있으므로 먼저 refresh를 시도한다.
     try {
-      final accessToken = await _storage.getAccessToken();
-      if (accessToken == null) {
-        state = const AuthStateUnauthenticated();
-        return;
-      }
+      final newAccessToken = await _repo.refresh(refreshToken);
+      await _storage.saveTokens(
+        accessToken: newAccessToken,
+        refreshToken: refreshToken,
+      );
+    } on DioException {
+      // refresh 실패 = refresh token 만료 또는 서버 오류 → 로그아웃
+      await _storage.clearTokens();
+      state = const AuthStateUnauthenticated();
+      return;
+    }
+
+    try {
       final user = await _repo.getMe();
       state = AuthStateAuthenticated(user);
     } catch (_) {

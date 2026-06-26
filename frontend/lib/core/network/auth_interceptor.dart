@@ -66,8 +66,9 @@ class AuthInterceptor extends Interceptor {
       final retryRes = await dio.fetch<dynamic>(retryOptions);
       return handler.resolve(retryRes);
     } on DioException {
+      // refresh 실패 → 세션 만료로 처리하고 원래 에러 전파
       await onLogout();
-      return handler.next(err);
+      return handler.reject(err);
     } finally {
       _isRefreshing = false;
     }
