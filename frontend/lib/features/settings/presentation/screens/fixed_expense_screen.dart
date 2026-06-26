@@ -9,10 +9,15 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/category_selector.dart';
+import '../../../../shared/widgets/collapsible_category_picker.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/gradient_background.dart';
 import '../../../../features/budget/presentation/providers/budget_provider.dart';
+import '../../../../features/categories/presentation/providers/category_provider.dart';
 import '../providers/settings_provider.dart';
+import '../../data/settings_repository.dart';
+import '../../../../features/transactions/presentation/providers/transaction_provider.dart';
 
 class FixedExpenseScreen extends ConsumerWidget {
   const FixedExpenseScreen({super.key});
@@ -53,13 +58,16 @@ class FixedExpenseScreen extends ConsumerWidget {
             title: '고정 지출 수정',
             child: _AddExpenseForm(
               initial: e,
-              onSave: (name, amount, day, method) async {
+              onSave: (name, amount, frequency, billingDay, dayOfWeek, method, categoryId, _) async {
                 await ref.read(settingsRepositoryProvider).updateFixedExpense(
-                  e.id, name: name, amount: amount, billingDay: day, paymentMethod: method,
-                  effectiveFrom: effectiveFrom,
+                  e.id,
+                  name: name, amount: amount,
+                  frequency: frequency, billingDay: billingDay, dayOfWeek: dayOfWeek,
+                  paymentMethod: method, effectiveFrom: effectiveFrom,
                 );
                 ref.invalidate(fixedExpensesProvider);
                 ref.invalidate(availableBudgetProvider);
+                ref.invalidate(currentCycleTransactionsProvider);
               },
             ),
           );
@@ -72,6 +80,7 @@ class FixedExpenseScreen extends ConsumerWidget {
           await ref.read(settingsRepositoryProvider).deleteFixedExpense(e.id, endFrom: endFrom);
           ref.invalidate(fixedExpensesProvider);
           ref.invalidate(availableBudgetProvider);
+          ref.invalidate(currentCycleTransactionsProvider);
         },
       ),
     );
@@ -161,17 +170,22 @@ class FixedExpenseScreen extends ConsumerWidget {
                               context,
                               title: '고정 지출 추가',
                               child: _AddExpenseForm(
-                                onSave: (name, amount, day, method) async {
+                                onSave: (name, amount, frequency, billingDay, dayOfWeek, method, categoryId, includeCurrentCycle) async {
                                   await ref
                                       .read(settingsRepositoryProvider)
                                       .createFixedExpense(
                                         name: name,
                                         amount: amount,
-                                        billingDay: day,
+                                        frequency: frequency,
+                                        billingDay: billingDay,
+                                        dayOfWeek: dayOfWeek,
                                         paymentMethod: method,
+                                        categoryId: categoryId,
+                                        includeCurrentCycle: includeCurrentCycle,
                                       );
                                   ref.invalidate(fixedExpensesProvider);
                                   ref.invalidate(availableBudgetProvider);
+                                  ref.invalidate(currentCycleTransactionsProvider);
                                 },
                               ),
                             );
@@ -205,7 +219,7 @@ class _ExpenseRow extends StatelessWidget {
     required this.onTap,
   });
 
-  final dynamic item;
+  final FixedExpenseItem item;
   final NumberFormat fmt;
   final VoidCallback onTap;
 
@@ -214,6 +228,20 @@ class _ExpenseRow extends StatelessWidget {
         'cash' => '현금',
         _ => '계좌이체',
       };
+
+  static const _dowLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  String _scheduleLabel() {
+    final freq = item.frequency;
+    final dow = item.dayOfWeek;
+    final day = item.billingDay;
+    return switch (freq) {
+      'weekly'   => '매주 ${dow != null ? _dowLabels[dow] : '?'}요일',
+      'biweekly' => '격주 ${dow != null ? _dowLabels[dow] : '?'}요일',
+      'daily'    => '매일',
+      _          => day != null ? (day == 31 ? '매월 말일' : '매월 ${day}일') : '매월',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +273,7 @@ class _ExpenseRow extends StatelessWidget {
                       style:
                           tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
                   Text(
-                    '매월 ${item.billingDay}일 · ${_pmLabel(item.paymentMethod)}',
+                    '${_scheduleLabel()} · ${_pmLabel(item.paymentMethod)}',
                     style: tt.labelSmall
                         ?.copyWith(color: AppColors.textSecondary),
                   ),
@@ -306,22 +334,35 @@ class _AddRow extends StatelessWidget {
 
 // ── 고정 지출 추가 폼 ─────────────────────────────────────────
 
-class _AddExpenseForm extends StatefulWidget {
+class _AddExpenseForm extends ConsumerStatefulWidget {
   const _AddExpenseForm({required this.onSave, this.initial});
   final Future<void> Function(
-      String name, double amount, int day, String method) onSave;
+    String name,
+    double amount,
+    String frequency,
+    int? billingDay,
+    int? dayOfWeek,
+    String method,
+    int? categoryId,
+    bool includeCurrentCycle,
+  ) onSave;
   final dynamic initial;
 
   @override
-  State<_AddExpenseForm> createState() => _AddExpenseFormState();
+  ConsumerState<_AddExpenseForm> createState() => _AddExpenseFormState();
 }
 
-class _AddExpenseFormState extends State<_AddExpenseForm> {
+class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _amountCtrl;
   late int _amount;
-  late int _billingDay;
+  late String _frequency;
+  late int? _billingDay;
+  late int? _dayOfWeek;
   late String _method;
+  int? _categoryId;
+  bool _showCategoryPicker = false;
+  bool _showDayPicker = false;
   bool _saving = false;
 
   static const _methods = [
@@ -330,13 +371,30 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
     ('cash', '현금'),
   ];
 
+  static const _frequencies = [
+    ('monthly',  '매월'),
+    ('weekly',   '매주'),
+    ('biweekly', '격주'),
+    ('daily',    '매일'),
+  ];
+
+  bool get _canSave {
+    if (_saving || _nameCtrl.text.trim().isEmpty || _amount <= 0) return false;
+    if (_frequency == 'monthly' && _billingDay == null) return false;
+    if ((_frequency == 'weekly' || _frequency == 'biweekly') && _dayOfWeek == null) return false;
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
     final init = widget.initial;
     _amount = init != null ? (init.amount as num).round() : 0;
-    _billingDay = init?.billingDay ?? 1;
+    _frequency = init?.frequency ?? 'monthly';
+    _billingDay = init?.billingDay as int?;
+    _dayOfWeek = init?.dayOfWeek as int?;
     _method = init?.paymentMethod ?? 'account';
+    _categoryId = init?.categoryId as int?;
     _nameCtrl = TextEditingController(text: init?.name ?? '');
     _amountCtrl = TextEditingController(
       text: _amount > 0
@@ -344,6 +402,7 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
               RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')
           : '',
     );
+    _nameCtrl.addListener(() => setState(() {}));
   }
 
   @override
@@ -352,6 +411,31 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
     _amountCtrl.dispose();
     super.dispose();
   }
+
+  bool _hasPastOccurrence() {
+    final today = DateTime.now();
+    if (_frequency == 'daily') return true;
+    if ((_frequency == 'weekly' || _frequency == 'biweekly') && _dayOfWeek != null) {
+      // 이번 주 해당 요일이 오늘 이전인지
+      final todayDow = today.weekday - 1; // 0=월~6=일
+      return _dayOfWeek! <= todayDow;
+    }
+    if (_frequency == 'monthly' && _billingDay != null) {
+      return _billingDay! <= today.day;
+    }
+    return false;
+  }
+
+  String _dialogSubtitle() {
+    return switch (_frequency) {
+      'weekly'   => '이번 주 ${_dowLabel(_dayOfWeek!)}요일',
+      'biweekly' => '이번 사이클 ${_dowLabel(_dayOfWeek!)}요일',
+      'daily'    => '오늘부터',
+      _          => '이번 달 ${_billingDay == 31 ? '말일' : '${_billingDay}일'}',
+    };
+  }
+
+  String _dowLabel(int dow) => const ['월', '화', '수', '목', '금', '토', '일'][dow];
 
   @override
   Widget build(BuildContext context) {
@@ -371,17 +455,70 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
         AmountTextField(
           label: '금액',
           controller: _amountCtrl,
-          onChanged: (v) => _amount = v,
+          onChanged: (v) => setState(() => _amount = v),
         ),
         const SizedBox(height: AppSpacing.md),
-        _InlineDayPicker(
-          label: '청구일',
-          value: _billingDay,
-          onChanged: (v) => setState(() => _billingDay = v ?? 1),
+
+        // ── 반복 유형 선택 ──
+        Text('반복', style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: _frequencies.map((opt) {
+            final (val, label) = opt;
+            final isSel = _frequency == val;
+            final isLast = val == 'daily';
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _frequency = val;
+                  // 유형 변경 시 관련 값 초기화
+                  if (val == 'monthly') _dayOfWeek = null;
+                  if (val != 'monthly') _billingDay = null;
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: isLast ? 0 : AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSel ? AppColors.expense.withValues(alpha: 0.1) : const Color(0x0A000000),
+                    borderRadius: AppRadius.buttonBorderRadius,
+                    border: Border.all(color: isSel ? AppColors.expense : AppColors.divider),
+                  ),
+                  child: Center(
+                    child: Text(label, style: tt.labelMedium?.copyWith(
+                      color: isSel ? AppColors.expense : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
+                    )),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('결제 수단',
-            style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+
+        // ── 날짜/요일 피커 (유형에 따라) ──
+        if (_frequency == 'monthly')
+          _InlineDayPicker(
+            label: '청구일',
+            value: _billingDay,
+            isOpen: _showDayPicker,
+            onToggle: () => setState(() {
+              _showDayPicker = !_showDayPicker;
+              if (_showDayPicker) _showCategoryPicker = false;
+            }),
+            onChanged: (v) => setState(() => _billingDay = v),
+          )
+        else if (_frequency == 'weekly' || _frequency == 'biweekly')
+          _DowPicker(
+            label: '요일',
+            value: _dayOfWeek,
+            color: AppColors.expense,
+            onChanged: (v) => setState(() => _dayOfWeek = v),
+          ),
+
+        const SizedBox(height: AppSpacing.md),
+        Text('결제 수단', style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.sm),
         Row(
           children: _methods.map((opt) {
@@ -392,44 +529,81 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
                 onTap: () => setState(() => _method = val),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  margin: EdgeInsets.only(
-                      right: val != 'cash' ? AppSpacing.sm : 0),
+                  margin: EdgeInsets.only(right: val != 'cash' ? AppSpacing.sm : 0),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSel
-                        ? AppColors.primary.withValues(alpha: 0.1)
-                        : const Color(0x0A000000),
+                    color: isSel ? AppColors.primary.withValues(alpha: 0.1) : const Color(0x0A000000),
                     borderRadius: AppRadius.buttonBorderRadius,
-                    border: Border.all(
-                        color:
-                            isSel ? AppColors.primary : AppColors.divider),
+                    border: Border.all(color: isSel ? AppColors.primary : AppColors.divider),
                   ),
                   child: Center(
-                    child: Text(label,
-                        style: tt.labelMedium?.copyWith(
-                          color: isSel
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          fontWeight:
-                              isSel ? FontWeight.w600 : FontWeight.w400,
-                        )),
+                    child: Text(label, style: tt.labelMedium?.copyWith(
+                      color: isSel ? AppColors.primary : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
+                    )),
                   ),
                 ),
               ),
             );
           }).toList(),
         ),
+        const SizedBox(height: AppSpacing.md),
+        ref.watch(categoryItemsProvider).when(
+          data: (all) {
+            const incomeNames = {'급여', '부업', '투자', '기타수입', '수입'};
+            const systemNames = {'고정지출'};
+            final items = all.where((c) => !incomeNames.contains(c.label) && !systemNames.contains(c.label)).toList();
+            final selected = items.where((c) => c.id == _categoryId).firstOrNull;
+            return CollapsibleCategoryPicker(
+              items: items,
+              selected: selected,
+              expanded: _showCategoryPicker,
+              accentColor: AppColors.expense,
+              onToggle: () => setState(() {
+                _showCategoryPicker = !_showCategoryPicker;
+                if (_showCategoryPicker) _showDayPicker = false;
+              }),
+              onSelected: (c) => setState(() {
+                _categoryId = c.id;
+                _showCategoryPicker = false;
+              }),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
         const SizedBox(height: AppSpacing.xl),
         ElevatedButton(
-          onPressed:
-              _saving || _nameCtrl.text.trim().isEmpty || _amount <= 0
-                  ? null
-                  : () async {
-                      setState(() => _saving = true);
-                      await widget.onSave(
-                          _nameCtrl.text.trim(), _amount.toDouble(), _billingDay, _method);
-                      if (context.mounted) Navigator.pop(context);
-                    },
+          onPressed: _canSave
+              ? () async {
+                  bool includeCurrentCycle = true;
+                  if (widget.initial == null && _hasPastOccurrence()) {
+                    final result = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => _CurrentCycleDialog(
+                        subtitle: _dialogSubtitle(),
+                        name: _nameCtrl.text.trim(),
+                        color: AppColors.expense,
+                        label: '지출',
+                      ),
+                    );
+                    if (result == null || !context.mounted) return;
+                    includeCurrentCycle = result;
+                  }
+                  setState(() => _saving = true);
+                  await widget.onSave(
+                    _nameCtrl.text.trim(),
+                    _amount.toDouble(),
+                    _frequency,
+                    _billingDay,
+                    _dayOfWeek,
+                    _method,
+                    _categoryId,
+                    includeCurrentCycle,
+                  );
+                  if (context.mounted) Navigator.pop(context);
+                }
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.expense,
             foregroundColor: Colors.white,
@@ -437,16 +611,10 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
             disabledForegroundColor: Colors.white70,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.buttonBorderRadius),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorderRadius),
           ),
           child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Text(widget.initial != null ? '수정 완료' : '추가', style: tt.labelLarge),
         ),
       ],
@@ -456,19 +624,20 @@ class _AddExpenseFormState extends State<_AddExpenseForm> {
 
 // ── 인라인 날짜 피커 ──────────────────────────────────────────
 
-class _InlineDayPicker extends StatefulWidget {
-  const _InlineDayPicker(
-      {required this.label, required this.value, required this.onChanged});
+class _InlineDayPicker extends StatelessWidget {
+  const _InlineDayPicker({
+    required this.label,
+    required this.value,
+    required this.isOpen,
+    required this.onToggle,
+    required this.onChanged,
+  });
+
   final String label;
   final int? value;
+  final bool isOpen;
+  final VoidCallback onToggle;
   final ValueChanged<int?> onChanged;
-
-  @override
-  State<_InlineDayPicker> createState() => _InlineDayPickerState();
-}
-
-class _InlineDayPickerState extends State<_InlineDayPicker> {
-  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
@@ -479,34 +648,33 @@ class _InlineDayPickerState extends State<_InlineDayPicker> {
         color: const Color(0x0A000000),
         borderRadius: AppRadius.buttonBorderRadius,
         border: Border.all(
-            color: _open ? AppColors.primary : AppColors.divider,
-            width: _open ? 1.5 : 1),
+            color: isOpen ? AppColors.primary : AppColors.divider,
+            width: isOpen ? 1.5 : 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: () => setState(() => _open = !_open),
+            onTap: onToggle,
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg, vertical: AppSpacing.md),
               child: Row(
                 children: [
-                  Text(widget.label,
+                  Text(label,
                       style: tt.bodyLarge?.copyWith(
-                        color: widget.value != null
+                        color: value != null
                             ? AppColors.textPrimary
                             : AppColors.textSecondary,
                       )),
                   const Spacer(),
-                  if (widget.value != null)
-                    Text('매월 ${widget.value}일',
-                        style: tt.bodyMedium
-                            ?.copyWith(color: AppColors.primary)),
+                  if (value != null)
+                    Text(value == 31 ? '매월 말일' : '매월 ${value}일',
+                        style: tt.bodyMedium?.copyWith(color: AppColors.primary)),
                   const SizedBox(width: AppSpacing.xs),
                   AnimatedRotation(
-                    turns: _open ? 0.5 : 0,
+                    turns: isOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
                     child: const Icon(Icons.expand_more_rounded,
                         size: 20, color: AppColors.textSecondary),
@@ -518,7 +686,7 @@ class _InlineDayPickerState extends State<_InlineDayPicker> {
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 200),
             crossFadeState:
-                _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                isOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -533,14 +701,15 @@ class _InlineDayPickerState extends State<_InlineDayPicker> {
                   crossAxisSpacing: AppSpacing.xs,
                   childAspectRatio: 1,
                 ),
-                itemCount: 28,
+                itemCount: 31,
                 itemBuilder: (_, i) {
                   final day = i + 1;
-                  final isSel = day == widget.value;
+                  final isSel = day == value;
+                  final isLast = day == 31;
                   return GestureDetector(
                     onTap: () {
-                      widget.onChanged(day);
-                      setState(() => _open = false);
+                      onChanged(day);
+                      if (isOpen) onToggle(); // 선택 시 닫기
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
@@ -552,11 +721,11 @@ class _InlineDayPickerState extends State<_InlineDayPicker> {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        '$day',
+                        isLast ? '말일' : '$day',
                         style: tt.labelSmall?.copyWith(
                           color: isSel ? Colors.white : AppColors.textPrimary,
-                          fontWeight:
-                              isSel ? FontWeight.w700 : FontWeight.w400,
+                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                          fontSize: isLast ? 8 : null,
                         ),
                       ),
                     ),
@@ -812,6 +981,148 @@ class _EffectiveFromDialog extends StatelessWidget {
   }
 }
 
+// ── 요일 피커 ─────────────────────────────────────────────────
+
+class _DowPicker extends StatelessWidget {
+  const _DowPicker({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int? value;
+  final Color color;
+  final ValueChanged<int?> onChanged;
+
+  static const _labels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: List.generate(7, (i) {
+            final isSel = value == i;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: i < 6 ? AppSpacing.xs : 0),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSel ? color.withValues(alpha: 0.12) : const Color(0x0A000000),
+                    borderRadius: AppRadius.buttonBorderRadius,
+                    border: Border.all(color: isSel ? color : AppColors.divider),
+                  ),
+                  child: Center(
+                    child: Text(_labels[i], style: tt.labelMedium?.copyWith(
+                      color: isSel ? color : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                    )),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 이번 달 포함 여부 다이얼로그 ─────────────────────────────
+
+class _CurrentCycleDialog extends StatelessWidget {
+  const _CurrentCycleDialog({
+    required this.subtitle,
+    required this.name,
+    required this.color,
+    required this.label,
+  });
+
+  final String subtitle;
+  final String name;
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 28),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.calendar_month_rounded, size: 26, color: color),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '이번 사이클에도 발생했나요?',
+            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              '$subtitle에 $name $label이\n이미 발생했나요?',
+              textAlign: TextAlign.center,
+              style: tt.bodySmall?.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          _DialogOption(
+            icon: Icons.check_circle_rounded,
+            iconColor: color,
+            title: '네, 이번 사이클도 포함해주세요',
+            subtitle: '$subtitle 발생분이 자동 기록됩니다',
+            onTap: () => Navigator.pop(context, true),
+          ),
+          const Divider(height: 1, indent: 56),
+          _DialogOption(
+            icon: Icons.arrow_forward_rounded,
+            iconColor: AppColors.primary,
+            title: '아니요, 다음 사이클부터 시작할게요',
+            subtitle: '이번 사이클은 건너뛰고 다음 사이클부터 추적됩니다',
+            onTap: () => Navigator.pop(context, false),
+          ),
+          const Divider(height: 1),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              minimumSize: const Size(double.infinity, 48),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              ),
+            ),
+            child: Text('취소', style: tt.bodyMedium),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DialogOption extends StatelessWidget {
   const _DialogOption({
     required this.icon,
@@ -867,3 +1178,4 @@ class _DialogOption extends StatelessWidget {
     );
   }
 }
+
