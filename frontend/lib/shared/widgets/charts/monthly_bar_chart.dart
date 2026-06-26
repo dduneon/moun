@@ -8,11 +8,13 @@ class MonthlyBarData {
     required this.label,
     required this.income,
     required this.expense,
+    this.pendingIncome = 0,
     this.fixedExpense = 0,
   });
 
   final String label;  // ex) '1월'
-  final int income;
+  final int income;       // confirmedIncome
+  final int pendingIncome; // expectedIncome - confirmedIncome (아직 안 받은 고정수입)
   final int expense;
   final int fixedExpense;
 }
@@ -28,7 +30,7 @@ class MonthlyBarChart extends StatelessWidget {
   double get _maxY {
     final m = data.fold<int>(
       0,
-      (prev, e) => [prev, e.income, e.expense + e.fixedExpense].reduce((a, b) => a > b ? a : b),
+      (prev, e) => [prev, e.income + e.pendingIncome, e.expense + e.fixedExpense].reduce((a, b) => a > b ? a : b),
     );
     final raw = (m * 1.25).ceilToDouble();
     return raw > 0 ? raw : 10000;
@@ -81,12 +83,20 @@ class MonthlyBarChart extends StatelessWidget {
                   barsSpace: 4,
                   barRods: [
                     BarChartRodData(
-                      toY: d.income.toDouble(),
-                      color: AppColors.income,
+                      toY: (d.income + d.pendingIncome).toDouble(),
                       width: 10,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(4),
                       ),
+                      rodStackItems: d.pendingIncome > 0
+                          ? [
+                              BarChartRodStackItem(0, d.income.toDouble(), AppColors.income),
+                              BarChartRodStackItem(d.income.toDouble(), (d.income + d.pendingIncome).toDouble(), AppColors.income.withValues(alpha: 0.35)),
+                            ]
+                          : [
+                              BarChartRodStackItem(0, d.income.toDouble(), AppColors.income),
+                            ],
+                      color: Colors.transparent,
                     ),
                     BarChartRodData(
                       toY: (d.expense + d.fixedExpense).toDouble(),
@@ -109,12 +119,15 @@ class MonthlyBarChart extends StatelessWidget {
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
                     final d = data[groupIndex];
                     if (rodIndex == 0) {
+                      final label = d.pendingIncome > 0
+                          ? '수입 ${_fmt(d.income)}원  예정 ${_fmt(d.pendingIncome)}원\n'
+                          : '수입\n';
                       return BarTooltipItem(
-                        '수입\n',
+                        label,
                         tt.labelSmall!.copyWith(color: Colors.white),
                         children: [
                           TextSpan(
-                            text: '${_fmt(d.income)}원',
+                            text: '합계 ${_fmt(d.income + d.pendingIncome)}원',
                             style: tt.labelMedium?.copyWith(
                               color: AppColors.income,
                               fontWeight: FontWeight.w700,
@@ -124,7 +137,7 @@ class MonthlyBarChart extends StatelessWidget {
                       );
                     }
                     return BarTooltipItem(
-                      '지출 ${_fmt(d.expense)}원  고정 ${_fmt(d.fixedExpense)}원\n',
+                      '변동 ${_fmt(d.expense)}원  고정 ${_fmt(d.fixedExpense)}원\n',
                       tt.labelSmall!.copyWith(color: Colors.white),
                       children: [
                         TextSpan(
@@ -147,9 +160,11 @@ class MonthlyBarChart extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _Legend('수입', AppColors.income),
-            const SizedBox(width: AppSpacing.lg),
+            const SizedBox(width: AppSpacing.md),
+            _Legend('예정수입', AppColors.income.withValues(alpha: 0.35)),
+            const SizedBox(width: AppSpacing.md),
             _Legend('지출', AppColors.expense),
-            const SizedBox(width: AppSpacing.lg),
+            const SizedBox(width: AppSpacing.md),
             _Legend('고정지출', AppColors.expensePending),
           ],
         ),

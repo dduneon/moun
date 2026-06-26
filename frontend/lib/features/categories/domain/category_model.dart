@@ -40,4 +40,7 @@ const _categoryMeta = <String, (IconData, Color)>{
   '부업': (Icons.work_rounded, Color(0xFF5B8DEF)),
   '투자': (Icons.trending_up_rounded, Color(0xFFB39DFF)),
   '기타수입': (Icons.more_horiz_rounded, AppColors.textSecondary),
+  // 시스템 카테고리 (자동 생성, 카테고리 피커에서 제외)
+  '수입': (Icons.arrow_circle_up_rounded, Color(0xFF34C77B)),
+  '고정지출': (Icons.repeat_rounded, Color(0xFFB39DFF)),
 };

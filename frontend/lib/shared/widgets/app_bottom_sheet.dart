@@ -48,33 +48,53 @@ class AppBottomSheet extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.xl + bottomPadding,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showHandle)
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+          // 핸들 + 타이틀 (고정)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0,
             ),
-          if (title != null) ...[
-            Text(title!, style: tt.headlineSmall),
-            const SizedBox(height: AppSpacing.lg),
-          ],
-          child,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showHandle)
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                if (title != null) ...[
+                  Text(title!, style: tt.headlineSmall),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+              ],
+            ),
+          ),
+          // 콘텐츠 (스크롤 가능)
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                AppSpacing.lg,
+                AppSpacing.xl + bottomPadding,
+              ),
+              child: child,
+            ),
+          ),
         ],
       ),
     );

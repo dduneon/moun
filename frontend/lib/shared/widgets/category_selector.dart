@@ -56,15 +56,19 @@ class CategoryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = items.length >= 5 ? 2 : 1;
     final columns = (items.length / rows).ceil();
-    return GridView.count(
-      crossAxisCount: columns,
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
-      crossAxisSpacing: AppSpacing.sm,
-      mainAxisSpacing: AppSpacing.sm,
-      childAspectRatio: 1.0,
-      children: items.map((item) {
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        crossAxisSpacing: AppSpacing.sm,
+        mainAxisSpacing: AppSpacing.sm,
+        mainAxisExtent: 68,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
         final isSelected = item.id == selectedId;
         return GestureDetector(
           onTap: () => onSelected(item),
@@ -74,8 +78,8 @@ class CategoryGrid extends StatelessWidget {
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                width: 40,
-                height: 40,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: isSelected
                       ? item.color.withValues(alpha: 0.15)
@@ -88,7 +92,7 @@ class CategoryGrid extends StatelessWidget {
                 ),
                 child: Icon(
                   item.icon,
-                  size: 18,
+                  size: 16,
                   color: isSelected ? item.color : AppColors.textSecondary,
                 ),
               ),
@@ -105,7 +109,7 @@ class CategoryGrid extends StatelessWidget {
             ],
           ),
         );
-      }).toList(),
+      },
     );
   }
 }
