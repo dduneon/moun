@@ -126,12 +126,14 @@ def _get_or_create_system_category(db: Session, user_id: int, name: str) -> int:
 
 # ── 활성 템플릿 조회 ──────────────────────────────────────────────────────────
 
-def _active_incomes(db: Session, user_id: int, ref_month: date) -> list[Income]:
+def _active_incomes(db: Session, user_id: int, cycle_start: date, cycle_end: date) -> list[Income]:
+    """이 사이클(cycle_start~cycle_end) 안에 하루라도 걸치는 그룹별 최신 버전 반환.
+    실제 발생일 필터링은 _occurrence_dates 호출 시 effective_from으로 별도 처리한다."""
     rows = db.scalars(
         select(Income)
         .where(Income.user_id == user_id)
-        .where(Income.effective_from <= ref_month)
-        .where((Income.end_date.is_(None)) | (Income.end_date > ref_month))
+        .where(Income.effective_from <= cycle_end)
+        .where((Income.end_date.is_(None)) | (Income.end_date > cycle_start))
     ).all()
     seen: set[int] = set()
     result: list[Income] = []
@@ -143,13 +145,15 @@ def _active_incomes(db: Session, user_id: int, ref_month: date) -> list[Income]:
     return result
 
 
-def _active_expenses(db: Session, user_id: int, ref_month: date) -> list[FixedExpense]:
+def _active_expenses(db: Session, user_id: int, cycle_start: date, cycle_end: date) -> list[FixedExpense]:
+    """이 사이클(cycle_start~cycle_end) 안에 하루라도 걸치는 그룹별 최신 버전 반환.
+    실제 발생일 필터링은 _occurrence_dates 호출 시 effective_from으로 별도 처리한다."""
     rows = db.scalars(
         select(FixedExpense)
         .where(FixedExpense.user_id == user_id)
         .where(FixedExpense.is_active.is_(True))
-        .where(FixedExpense.effective_from <= ref_month)
-        .where((FixedExpense.end_date.is_(None)) | (FixedExpense.end_date > ref_month))
+        .where(FixedExpense.effective_from <= cycle_end)
+        .where((FixedExpense.end_date.is_(None)) | (FixedExpense.end_date > cycle_start))
     ).all()
     seen: set[int] = set()
     result: list[FixedExpense] = []
@@ -199,22 +203,22 @@ def materialize_scheduled_items(
     아직 날짜가 안 된 항목(예정)을 pending 목록으로 반환.
     """
     today = date.today()
-    ref_month = start.replace(day=1)
 
-    incomes = _active_incomes(db, user_id, ref_month)
-    expenses = _active_expenses(db, user_id, ref_month)
+    incomes = _active_incomes(db, user_id, start, end)
+    expenses = _active_expenses(db, user_id, start, end)
 
     pending_incomes: list[PendingIncome] = []
     pending_expenses: list[PendingExpense] = []
     dirty = False
 
     for income in incomes:
+        occ_start = max(start, income.effective_from)
         all_dates = _occurrence_dates(
             income.frequency,
             income.scheduled_day,
             income.day_of_week,
             income.effective_from,
-            start, end,
+            occ_start, end,
         )
         if not all_dates:
             continue
@@ -247,12 +251,13 @@ def materialize_scheduled_items(
             dirty = True
 
     for expense in expenses:
+        occ_start = max(start, expense.effective_from)
         all_dates = _occurrence_dates(
             expense.frequency,
             expense.billing_day,
             expense.day_of_week,
             expense.effective_from,
-            start, end,
+            occ_start, end,
         )
         if not all_dates:
             continue

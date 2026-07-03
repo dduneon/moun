@@ -243,6 +243,12 @@ class _ExpenseRow extends StatelessWidget {
     };
   }
 
+  bool get _startsNextCycle {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    return item.effectiveFrom.isAfter(todayDate);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
@@ -269,9 +275,30 @@ class _ExpenseRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name,
-                      style:
-                          tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+                  Row(
+                    children: [
+                      Text(item.name,
+                          style: tt.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500)),
+                      if (_startsNextCycle) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${item.effectiveFrom.month}/${item.effectiveFrom.day}부터',
+                            style: tt.labelSmall?.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   Text(
                     '${_scheduleLabel()} · ${_pmLabel(item.paymentMethod)}',
                     style: tt.labelSmall
