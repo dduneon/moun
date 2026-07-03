@@ -16,6 +16,14 @@ from app.core.budget_cycle import get_cycle_bounds, get_current_cycle, get_recen
     (date(2026, 6, 10), 25, date(2026, 5, 25), date(2026, 6, 24), "2026년 5월"),
     # 월말 경계: salary_day=21, 12월
     (date(2025, 12, 31), 21, date(2025, 12, 21), date(2026, 1, 20), "2025년 12월"),
+    # salary_day=31(말일): 2월엔 28일로 보정, 사이클은 다음 달 말일 전날까지
+    (date(2026, 1, 15), 31, date(2025, 12, 31), date(2026, 1, 30), "2025년 12월"),
+    (date(2026, 2, 1),  31, date(2026, 1, 31),  date(2026, 2, 27), "2026년 1월"),
+    (date(2026, 2, 2),  31, date(2026, 1, 31),  date(2026, 2, 27), "2026년 1월"),
+    (date(2026, 3, 1),  31, date(2026, 2, 28),  date(2026, 3, 30), "2026년 2월"),
+    (date(2026, 3, 5),  31, date(2026, 2, 28),  date(2026, 3, 30), "2026년 2월"),
+    # salary_day=30: 2월엔 28일로 보정
+    (date(2026, 3, 1),  30, date(2026, 2, 28),  date(2026, 3, 29), "2026년 2월"),
 ])
 def test_cycle_bounds(ref, salary_day, exp_start, exp_end, exp_label):
     c = get_cycle_bounds(ref, salary_day)

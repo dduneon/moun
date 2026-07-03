@@ -82,7 +82,9 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.calendar_month_rounded,
                   iconColor: AppColors.primary,
                   label: '예산 기준일',
-                  value: user != null ? '매월 ${user.salaryDay}일' : null,
+                  value: user != null
+                      ? (user.salaryDay >= 31 ? '매월 말일' : '매월 ${user.salaryDay}일')
+                      : null,
                   onTap: () async {
                     final current = user?.salaryDay ?? 1;
                     final picked = await _pickSalaryDay(context, current);
@@ -195,19 +197,30 @@ class SettingsScreen extends ConsumerWidget {
 
 // ── 공용 서브 위젯 ─────────────────────────────────────────────
 
+int _lastDayOfMonth(int year, int month) => DateTime(year, month + 1, 0).day;
+
+int _clampedDay(int year, int month, int day) {
+  final last = _lastDayOfMonth(year, month);
+  return day > last ? last : day;
+}
+
 String _cycleRangeLabel(int salaryDay) {
   final now = DateTime.now();
   if (salaryDay <= 1) {
-    final lastDay = DateTime(now.year, now.month + 1, 0).day;
+    final lastDay = _lastDayOfMonth(now.year, now.month);
     return '${now.month}월 1일 ~ ${now.month}월 ${lastDay}일';
   }
-  if (now.day >= salaryDay) {
+  final thisMonthStartDay = _clampedDay(now.year, now.month, salaryDay);
+  if (now.day >= thisMonthStartDay) {
     final nextMonth = now.month == 12 ? 1 : now.month + 1;
     final nextYear = now.month == 12 ? now.year + 1 : now.year;
-    return '${now.month}월 ${salaryDay}일 ~ ${nextMonth}월 ${salaryDay - 1}일';
+    final nextMonthStartDay = _clampedDay(nextYear, nextMonth, salaryDay);
+    return '${now.month}월 $thisMonthStartDay일 ~ $nextMonth월 ${nextMonthStartDay - 1}일';
   } else {
     final prevMonth = now.month == 1 ? 12 : now.month - 1;
-    return '${prevMonth}월 ${salaryDay}일 ~ ${now.month}월 ${salaryDay - 1}일';
+    final prevYear = now.month == 1 ? now.year - 1 : now.year;
+    final prevMonthStartDay = _clampedDay(prevYear, prevMonth, salaryDay);
+    return '$prevMonth월 $prevMonthStartDay일 ~ ${now.month}월 ${thisMonthStartDay - 1}일';
   }
 }
 
@@ -282,8 +295,9 @@ Future<int?> _pickSalaryDay(BuildContext context, int current) async {
                 crossAxisCount: 7,
                 mainAxisSpacing: 6,
                 crossAxisSpacing: 6,
-                children: List.generate(28, (i) {
+                children: List.generate(31, (i) {
                   final day = i + 1;
+                  final isLast = day == 31;
                   final isSelected = day == selected;
                   return GestureDetector(
                     onTap: () => setState(() => selected = day),
@@ -297,7 +311,7 @@ Future<int?> _pickSalaryDay(BuildContext context, int current) async {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        '$day',
+                        isLast ? '말일' : '$day',
                         style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                               color: isSelected
                                   ? Colors.white
@@ -305,6 +319,7 @@ Future<int?> _pickSalaryDay(BuildContext context, int current) async {
                               fontWeight: isSelected
                                   ? FontWeight.w700
                                   : FontWeight.normal,
+                              fontSize: isLast ? 9 : null,
                             ),
                       ),
                     ),

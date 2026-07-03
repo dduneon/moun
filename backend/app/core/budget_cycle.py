@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass
 
 
@@ -12,8 +12,15 @@ class CycleBounds:
     label: str
 
 
+def _clamped_day(year: int, month: int, day: int) -> int:
+    """해당 연/월의 실제 일수를 넘지 않도록 day를 자른다 (31=말일 등)."""
+    last = calendar.monthrange(year, month)[1]
+    return min(day, last)
+
+
 def get_cycle_bounds(ref_date: date, salary_day: int) -> CycleBounds:
-    """salary_day 기준으로 ref_date가 속하는 사이클 경계를 계산한다."""
+    """salary_day 기준으로 ref_date가 속하는 사이클 경계를 계산한다.
+    salary_day가 그 달의 실제 일수보다 크면(예: 31=말일) 그 달의 말일로 자동 보정된다."""
     d = salary_day
     if d <= 1:
         last = calendar.monthrange(ref_date.year, ref_date.month)[1]
@@ -23,20 +30,26 @@ def get_cycle_bounds(ref_date: date, salary_day: int) -> CycleBounds:
             label=f"{ref_date.year}년 {ref_date.month}월",
         )
 
-    if ref_date.day >= d:
-        start = ref_date.replace(day=d)
+    this_month_start_day = _clamped_day(ref_date.year, ref_date.month, d)
+
+    if ref_date.day >= this_month_start_day:
+        start = ref_date.replace(day=this_month_start_day)
         if ref_date.month == 12:
-            end = date(ref_date.year + 1, 1, d - 1)
+            next_year, next_month = ref_date.year + 1, 1
         else:
-            end = date(ref_date.year, ref_date.month + 1, d - 1)
+            next_year, next_month = ref_date.year, ref_date.month + 1
+        next_month_start_day = _clamped_day(next_year, next_month, d)
+        end = date(next_year, next_month, next_month_start_day) - timedelta(days=1)
         label = f"{ref_date.year}년 {ref_date.month}월"
     else:
         if ref_date.month == 1:
-            start = date(ref_date.year - 1, 12, d)
+            prev_year, prev_month = ref_date.year - 1, 12
         else:
-            start = date(ref_date.year, ref_date.month - 1, d)
-        end = ref_date.replace(day=d - 1)
-        label = f"{start.year}년 {start.month}월"
+            prev_year, prev_month = ref_date.year, ref_date.month - 1
+        prev_month_start_day = _clamped_day(prev_year, prev_month, d)
+        start = date(prev_year, prev_month, prev_month_start_day)
+        end = ref_date.replace(day=this_month_start_day) - timedelta(days=1)
+        label = f"{prev_year}년 {prev_month}월"
 
     return CycleBounds(start=start, end=end, label=label)
 

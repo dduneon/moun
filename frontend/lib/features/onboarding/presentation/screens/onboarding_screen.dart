@@ -475,18 +475,31 @@ class _Step4 extends StatelessWidget {
   final int salaryDay;
   final ValueChanged<int> onChanged;
 
+  static int _lastDayOfMonth(int year, int month) =>
+      DateTime(year, month + 1, 0).day;
+
+  static int _clampedDay(int year, int month, int day) {
+    final last = _lastDayOfMonth(year, month);
+    return day > last ? last : day;
+  }
+
   String _cycleRangeLabel(int day) {
     final now = DateTime.now();
     if (day <= 1) {
-      final lastDay = DateTime(now.year, now.month + 1, 0).day;
+      final lastDay = _lastDayOfMonth(now.year, now.month);
       return '${now.month}월 1일 ~ ${now.month}월 ${lastDay}일';
     }
-    if (now.day >= day) {
+    final thisMonthStartDay = _clampedDay(now.year, now.month, day);
+    if (now.day >= thisMonthStartDay) {
       final nextMonth = now.month == 12 ? 1 : now.month + 1;
-      return '${now.month}월 ${day}일 ~ ${nextMonth}월 ${day - 1}일';
+      final nextYear = now.month == 12 ? now.year + 1 : now.year;
+      final nextMonthStartDay = _clampedDay(nextYear, nextMonth, day);
+      return '${now.month}월 $thisMonthStartDay일 ~ $nextMonth월 ${nextMonthStartDay - 1}일';
     } else {
       final prevMonth = now.month == 1 ? 12 : now.month - 1;
-      return '${prevMonth}월 ${day}일 ~ ${now.month}월 ${day - 1}일';
+      final prevYear = now.month == 1 ? now.year - 1 : now.year;
+      final prevMonthStartDay = _clampedDay(prevYear, prevMonth, day);
+      return '$prevMonth월 $prevMonthStartDay일 ~ ${now.month}월 ${thisMonthStartDay - 1}일';
     }
   }
 
@@ -578,8 +591,9 @@ class _Step4 extends StatelessWidget {
             crossAxisCount: 7,
             mainAxisSpacing: 6,
             crossAxisSpacing: 6,
-            children: List.generate(28, (i) {
+            children: List.generate(31, (i) {
               final day = i + 1;
+              final isLast = day == 31;
               final isSelected = day == salaryDay;
               return GestureDetector(
                 onTap: () => onChanged(day),
@@ -593,10 +607,11 @@ class _Step4 extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    '$day',
+                    isLast ? '말일' : '$day',
                     style: tt.bodySmall?.copyWith(
                       color: isSelected ? Colors.white : AppColors.textPrimary,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                      fontSize: isLast ? 9 : null,
                     ),
                   ),
                 ),
