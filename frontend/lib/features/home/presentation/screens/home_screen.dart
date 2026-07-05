@@ -18,6 +18,10 @@ import '../../../../shared/widgets/moun_calendar.dart';
 import '../../../../shared/widgets/category_selector.dart' show CategoryItem;
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 import '../../../transactions/presentation/widgets/add_transaction_sheet.dart';
+import '../../../spaces/domain/space_model.dart';
+import '../../../spaces/presentation/providers/space_provider.dart';
+import '../../../spaces/presentation/widgets/space_home_body.dart';
+import '../../../spaces/presentation/widgets/space_switcher.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -99,6 +103,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final txByDayAsync = ref.watch(transactionsByDateProvider);
     final fixedIncomesAsync = ref.watch(fixedIncomesProvider(_viewMonth));
     final fixedExpensesAsync = ref.watch(fixedExpensesProvider(_viewMonth));
+    final spaceContext = ref.watch(currentSpaceProvider).value;
+
+    if (spaceContext is SpaceSelected) {
+      return SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+              child: Row(
+                children: [
+                  Expanded(child: Text(spaceContext.space.name, style: tt.headlineMedium)),
+                  const SpaceSwitcher(),
+                ],
+              ),
+            ),
+            Expanded(child: SpaceHomeBody(space: spaceContext.space)),
+          ],
+        ),
+      );
+    }
 
     return SafeArea(
       child: CustomScrollView(
@@ -132,6 +156,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                   const Spacer(),
+                  const SpaceSwitcher(),
+                  const SizedBox(width: AppSpacing.xs),
                   IconButton(
                     icon: const Icon(Icons.notifications_none_rounded),
                     color: AppColors.textPrimary,

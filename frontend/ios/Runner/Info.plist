@@ -12,6 +12,14 @@
 				<string>kakao5d562dc375f809d620ab936174d3d3d0</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>moun.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>moun</string>
+			</array>
+		</dict>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

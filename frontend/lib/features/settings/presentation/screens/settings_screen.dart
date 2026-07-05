@@ -129,6 +129,25 @@ class SettingsScreen extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
 
+          // ── 스페이스
+          SliverToBoxAdapter(child: _SectionHeader('함께 쓰기')),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: GlassCard(
+                padding: EdgeInsets.zero,
+                child: _SettingsTile(
+                  icon: Icons.groups_rounded,
+                  iconColor: AppColors.income,
+                  label: '스페이스 관리',
+                  onTap: () => context.push('/settings/spaces'),
+                ),
+              ).animate(delay: 250.ms).fadeIn(),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xl)),
+
           // ── 앱 설정
           SliverToBoxAdapter(child: _SectionHeader('앱')),
           SliverToBoxAdapter(

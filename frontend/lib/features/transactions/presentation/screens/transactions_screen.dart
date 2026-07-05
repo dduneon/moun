@@ -9,7 +9,13 @@ import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/selection_chip.dart';
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
+import '../../../budget/domain/budget_models.dart';
 import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../spaces/domain/space_model.dart';
+import '../../../spaces/presentation/providers/space_budget_provider.dart';
+import '../../../spaces/presentation/providers/space_provider.dart';
+import '../../../spaces/presentation/providers/space_transaction_provider.dart';
+import '../../../spaces/presentation/widgets/space_switcher.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/add_transaction_sheet.dart';
 
@@ -28,8 +34,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final txByDayAsync = ref.watch(transactionsByDateProvider);
-    final cycleAsync = ref.watch(currentCycleProvider);
+    final spaceContext = ref.watch(currentSpaceProvider).value;
+    final isSpace = spaceContext is SpaceSelected;
+
+    final txByDayAsync = isSpace
+        ? ref.watch(spaceTransactionsByDateProvider)
+        : ref.watch(transactionsByDateProvider);
+    final AsyncValue<BudgetCycle?> cycleAsync = isSpace
+        ? ref.watch(currentSpaceCycleProvider)
+        : ref.watch(currentCycleProvider);
+    final title = isSpace ? '${spaceContext.space.name} 거래 내역' : '거래 내역';
 
     return SafeArea(
       child: CustomScrollView(
@@ -40,9 +54,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               padding: const EdgeInsets.fromLTRB(
                 AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md,
               ),
-              child: Text('거래 내역', style: tt.headlineMedium)
-                  .animate()
-                  .fadeIn(duration: 300.ms),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(title, style: tt.headlineMedium)
+                        .animate()
+                        .fadeIn(duration: 300.ms),
+                  ),
+                  const SpaceSwitcher(),
+                ],
+              ),
             ),
           ),
 
@@ -51,14 +72,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: cycleAsync.when(
-                data: (cycle) => txByDayAsync.when(
-                  data: (txByDay) => _SummaryCard(
-                    cycle: cycle,
-                    txByDay: txByDay,
-                  ).animate(delay: 60.ms).fadeIn(),
-                  loading: () => const SizedBox.shrink(),
-                  error: (e, st) => const SizedBox.shrink(),
-                ),
+                data: (cycle) => cycle == null
+                    ? const SizedBox.shrink()
+                    : txByDayAsync.when(
+                        data: (txByDay) => _SummaryCard(
+                          cycle: cycle,
+                          txByDay: txByDay,
+                        ).animate(delay: 60.ms).fadeIn(),
+                        loading: () => const SizedBox.shrink(),
+                        error: (e, st) => const SizedBox.shrink(),
+                      ),
                 loading: () => const SizedBox.shrink(),
                 error: (e, st) => const SizedBox.shrink(),
               ),
@@ -187,7 +210,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.cycle, required this.txByDay});
 
-  final dynamic cycle;
+  final BudgetCycle cycle;
   final Map<DateTime, List<TransactionItem>> txByDay;
 
   static final _dateFmt = DateFormat('M월 d일', 'ko');

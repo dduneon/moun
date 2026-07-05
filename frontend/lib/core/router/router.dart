@@ -15,13 +15,18 @@ import '../../features/settings/presentation/screens/fixed_expense_screen.dart';
 import '../../features/settings/presentation/screens/notification_settings_screen.dart';
 import '../../features/settings/presentation/screens/app_info_screen.dart';
 import '../../features/shell/main_shell.dart';
+import '../../features/spaces/presentation/screens/space_list_screen.dart';
+import '../../features/spaces/presentation/screens/invite_preview_screen.dart';
+import '../deeplink/deep_link_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   Future.microtask(() => ref.read(authProvider.notifier).restoreSession());
+  // 딥링크 리스너 구독 시작 (콜드/웜 스타트 양쪽 처리)
+  ref.read(deepLinkListenerProvider);
 
   return GoRouter(
     initialLocation: '/home',
-    refreshListenable: _AuthStateListenable(ref),
+    refreshListenable: _RouterListenable(ref),
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuth = authState is AuthStateAuthenticated;
@@ -33,11 +38,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onAuthScreen =
           location == '/login' || location == '/register';
       final onOnboarding = location == '/onboarding';
+      final onInviteScreen = location.startsWith('/invite/');
 
       if (!isAuth && !onAuthScreen) return '/login';
       if (authState case AuthStateAuthenticated(:final needsOnboarding)) {
         if (needsOnboarding && !onOnboarding) return '/onboarding';
         if (!needsOnboarding && (onAuthScreen || onOnboarding)) return '/home';
+
+        // 로그인 완료 + 온보딩 불필요 + 대기 중인 초대 링크가 있으면 미리보기로 이동
+        final pendingToken = ref.read(pendingInviteTokenProvider);
+        if (!needsOnboarding && pendingToken != null && !onInviteScreen) {
+          return '/invite/$pendingToken';
+        }
       }
       return null;
     },
@@ -45,6 +57,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+      GoRoute(
+        path: '/invite/:token',
+        builder: (_, state) => InvitePreviewScreen(token: state.pathParameters['token']!),
+      ),
 
       StatefulShellRoute.indexedStack(
         builder: (_, __, shell) => MainShell(navigationShell: shell),
@@ -78,6 +94,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(path: 'fixed-expense', pageBuilder: (_, s) => _settingsPage(const FixedExpenseScreen(), s.pageKey)),
                 GoRoute(path: 'notifications', pageBuilder: (_, s) => _settingsPage(const NotificationSettingsScreen(), s.pageKey)),
                 GoRoute(path: 'app-info', pageBuilder: (_, s) => _settingsPage(const AppInfoScreen(), s.pageKey)),
+                GoRoute(path: 'spaces', pageBuilder: (_, s) => _settingsPage(const SpaceListScreen(), s.pageKey)),
               ],
             ),
           ]),
@@ -104,8 +121,9 @@ CustomTransitionPage<void> _settingsPage(Widget child, LocalKey key) {
   );
 }
 
-class _AuthStateListenable extends ChangeNotifier {
-  _AuthStateListenable(Ref ref) {
+class _RouterListenable extends ChangeNotifier {
+  _RouterListenable(Ref ref) {
     ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(pendingInviteTokenProvider, (_, __) => notifyListeners());
   }
 }

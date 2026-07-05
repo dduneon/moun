@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.fixed_expense import FixedExpense
     from app.models.income import Income
+    from app.models.space import SpaceMember
     from app.models.transaction import Transaction
 
 
@@ -34,3 +35,4 @@ class User(Base):
     cards: Mapped[list[Card]] = relationship(back_populates="user")
     categories: Mapped[list[Category]] = relationship(back_populates="user")
     transactions: Mapped[list[Transaction]] = relationship(back_populates="user")
+    space_memberships: Mapped[list[SpaceMember]] = relationship()

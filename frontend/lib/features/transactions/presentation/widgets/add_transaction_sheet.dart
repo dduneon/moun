@@ -11,6 +11,10 @@ import '../../../../shared/widgets/selection_chip.dart';
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
 import '../../../budget/presentation/providers/budget_provider.dart';
 import '../../../categories/presentation/providers/category_provider.dart';
+import '../../../spaces/domain/space_model.dart';
+import '../../../spaces/presentation/providers/space_budget_provider.dart';
+import '../../../spaces/presentation/providers/space_provider.dart';
+import '../../../spaces/presentation/providers/space_transaction_provider.dart';
 import '../providers/transaction_provider.dart';
 
 class AddTransactionSheet extends ConsumerStatefulWidget {
@@ -115,6 +119,10 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               : _incomeNames.contains(c.label))
       .toList();
 
+  // Space 카테고리는 사용자가 자유롭게 이름을 짓기 때문에 수입/지출을
+  // 이름으로 구분할 수 없다 — 전체 목록을 그대로 보여준다.
+  List<CategoryItem> _noFilter(List<CategoryItem> all) => all;
+
   Color get _accentColor => _isExpense ? AppColors.expense : AppColors.income;
 
   Future<void> _submit() async {
@@ -128,34 +136,52 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       return;
     }
 
+    final spaceContext = ref.read(currentSpaceProvider).value;
+    final isSpaceMode = !_isEditMode && spaceContext is SpaceSelected;
+
     setState(() => _loading = true);
     try {
-      final repo = ref.read(transactionRepositoryProvider);
       final finalAmount = _isExpense ? -_amount : _amount;
       final name = _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim();
       final memo = _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim();
 
-      if (_isEditMode) {
-        await repo.update(
-          widget.initialItem!.id,
-          amount: finalAmount,
-          categoryId: effectiveCategory.id,
-          transactionDate: _date,
-          name: name,
-          memo: memo,
-        );
+      if (isSpaceMode) {
+        final spaceId = spaceContext.space.id;
+        await ref.read(spaceTransactionRepositoryProvider).create(
+              spaceId,
+              amount: finalAmount,
+              categoryId: effectiveCategory.id,
+              paymentMethod: 'cash',
+              transactionDate: _date,
+              name: name,
+              memo: memo,
+            );
+        ref.invalidate(currentSpaceTransactionsProvider);
+        ref.invalidate(currentSpaceBudgetProvider);
       } else {
-        await repo.create(
-          amount: finalAmount,
-          categoryId: effectiveCategory.id,
-          paymentMethod: 'cash',
-          transactionDate: _date,
-          name: name,
-          memo: memo,
-        );
+        final repo = ref.read(transactionRepositoryProvider);
+        if (_isEditMode) {
+          await repo.update(
+            widget.initialItem!.id,
+            amount: finalAmount,
+            categoryId: effectiveCategory.id,
+            transactionDate: _date,
+            name: name,
+            memo: memo,
+          );
+        } else {
+          await repo.create(
+            amount: finalAmount,
+            categoryId: effectiveCategory.id,
+            paymentMethod: 'cash',
+            transactionDate: _date,
+            name: name,
+            memo: memo,
+          );
+        }
+        ref.invalidate(currentCycleTransactionsProvider);
+        ref.invalidate(availableBudgetProvider);
       }
-      ref.invalidate(currentCycleTransactionsProvider);
-      ref.invalidate(availableBudgetProvider);
       if (mounted) Navigator.pop(context, true);
     } catch (e, st) {
       debugPrint('거래 저장 실패: $e\n$st');
@@ -180,6 +206,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     final tt = Theme.of(context).textTheme;
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
     final accent = _accentColor;
+    final spaceContext = ref.watch(currentSpaceProvider).value;
+    final isSpaceMode = !_isEditMode && spaceContext is SpaceSelected;
+    final categoryItemsAsync = isSpaceMode
+        ? ref.watch(spaceCategoryItemsProvider(spaceContext.space.id))
+        : ref.watch(categoryItemsProvider);
 
     return Container(
       decoration: const BoxDecoration(
@@ -212,7 +243,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ),
 
-            Text(_isEditMode ? '거래 수정' : '거래 추가', style: tt.headlineSmall),
+            Text(
+              _isEditMode
+                  ? '거래 수정'
+                  : isSpaceMode
+                      ? '${spaceContext.space.name} 거래 추가'
+                      : '거래 추가',
+              style: tt.headlineSmall,
+            ),
             const SizedBox(height: AppSpacing.lg),
 
             TransactionTypeToggle(
@@ -250,8 +288,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                 _category = c;
                 _showCategoryPicker = false;
               }),
-              categoryItems: ref.watch(categoryItemsProvider),
-              filterCategories: _filterCategories,
+              categoryItems: categoryItemsAsync,
+              filterCategories: isSpaceMode ? _noFilter : _filterCategories,
             ),
             const SizedBox(height: AppSpacing.md),
 

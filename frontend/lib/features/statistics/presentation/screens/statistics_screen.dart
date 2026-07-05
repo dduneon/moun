@@ -10,6 +10,9 @@ import '../../../../shared/widgets/charts/monthly_bar_chart.dart';
 import '../../../../shared/widgets/charts/spending_line_chart.dart';
 import '../../../budget/domain/budget_models.dart' show AvailableBudget, SpendSummary, CategoryData;
 import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../spaces/domain/space_model.dart';
+import '../../../spaces/presentation/providers/space_provider.dart';
+import '../../../spaces/presentation/widgets/space_switcher.dart';
 import '../providers/statistics_provider.dart';
 
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -38,6 +41,37 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final spaceContext = ref.watch(currentSpaceProvider).value;
+
+    if (spaceContext is SpaceSelected) {
+      return SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
+              child: Row(
+                children: [
+                  Expanded(child: Text('통계', style: tt.headlineMedium)),
+                  const SpaceSwitcher(),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Text(
+                    '${spaceContext.space.name} 스페이스의 통계는 아직 준비 중이에요.\n개인 공간으로 전환하면 통계를 볼 수 있어요.',
+                    textAlign: TextAlign.center,
+                    style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SafeArea(
       child: Column(
@@ -47,9 +81,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0,
             ),
-            child: Text('통계', style: tt.headlineMedium)
-                .animate()
-                .fadeIn(duration: 300.ms),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('통계', style: tt.headlineMedium)
+                      .animate()
+                      .fadeIn(duration: 300.ms),
+                ),
+                const SpaceSwitcher(),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(

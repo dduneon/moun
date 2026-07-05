@@ -27,5 +27,9 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET: str = "moun"
 
+    # Space 초대 링크
+    FRONTEND_BASE_URL: str = "https://moun.app"
+    SPACE_INVITE_EXPIRE_HOURS: int = 72
+
 
 settings = Settings()
