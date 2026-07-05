@@ -10,6 +10,7 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/budget/domain/budget_models.dart';
 import '../../../../features/budget/presentation/providers/budget_provider.dart';
 import '../../../../features/settings/presentation/providers/settings_provider.dart';
+import '../providers/selected_calendar_date_provider.dart';
 import '../../../../features/transactions/presentation/providers/transaction_provider.dart';
 import '../../../../shared/widgets/amount_display.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
@@ -430,12 +431,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             setState(() {
                               _selectedDay = _selectedDay == key ? null : key;
                             });
+                            ref.read(selectedCalendarDateProvider.notifier).state =
+                                _selectedDay;
                           },
                           onMonthChanged: (month) {
                             setState(() {
                               _viewMonth = DateTime(month.year, month.month);
                               _selectedDay = null;
                             });
+                            ref.read(selectedCalendarDateProvider.notifier).state = null;
                           },
                         ),
                       ).animate(delay: 250.ms).fadeIn(),

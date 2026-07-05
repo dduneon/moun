@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -37,22 +38,37 @@ class MounApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final overlayStyle = isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+          )
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+          );
+
     if (_showDesignShowcase) {
-      return MaterialApp(
-        title: appName,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        home: const DesignShowcaseScreen(),
-        debugShowCheckedModeBanner: false,
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: overlayStyle,
+        child: MaterialApp(
+          title: appName,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          home: const DesignShowcaseScreen(),
+          debugShowCheckedModeBanner: false,
+        ),
       );
     }
 
-    return MaterialApp.router(
-      title: appName,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      routerConfig: ref.watch(routerProvider),
-      debugShowCheckedModeBanner: false,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlayStyle,
+      child: MaterialApp.router(
+        title: appName,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        routerConfig: ref.watch(routerProvider),
+        debugShowCheckedModeBanner: false,
+      ),
     );
   }
 }

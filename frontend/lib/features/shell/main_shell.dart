@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../shared/widgets/glass_floating_navbar.dart';
 import '../../shared/widgets/gradient_background.dart';
+import '../home/presentation/providers/selected_calendar_date_provider.dart';
 import '../transactions/presentation/widgets/add_transaction_sheet.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -17,9 +19,13 @@ class MainShell extends StatelessWidget {
     NavBarItem(icon: Icons.settings_rounded, label: '설정'),
   ];
 
-  void _onTap(BuildContext context, int index) {
+  void _onTap(BuildContext context, WidgetRef ref, int index) {
     if (index == 2) {
-      AddTransactionSheet.show(context);
+      // 홈 탭에서 달력 날짜를 선택한 상태라면 해당 날짜를 초기값으로 사용
+      final isHomeTab = navigationShell.currentIndex == 0;
+      final selectedDate =
+          isHomeTab ? ref.read(selectedCalendarDateProvider) : null;
+      AddTransactionSheet.show(context, initialDate: selectedDate);
       return;
     }
     // + 버튼이 index 2이므로 실제 브랜치 인덱스 조정
@@ -31,7 +37,7 @@ class MainShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return GradientBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -39,7 +45,7 @@ class MainShell extends StatelessWidget {
         bottomNavigationBar: GlassFloatingNavbar(
           items: _items,
           currentIndex: _navIndex,
-          onTap: (i) => _onTap(context, i),
+          onTap: (i) => _onTap(context, ref, i),
         ),
       ),
     );

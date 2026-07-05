@@ -18,16 +18,24 @@ import '../../../spaces/presentation/providers/space_transaction_provider.dart';
 import '../providers/transaction_provider.dart';
 
 class AddTransactionSheet extends ConsumerStatefulWidget {
-  const AddTransactionSheet({super.key, this.initialItem});
+  const AddTransactionSheet({super.key, this.initialItem, this.initialDate});
 
   final TransactionItem? initialItem;
+  final DateTime? initialDate;
 
-  static Future<bool?> show(BuildContext context, {TransactionItem? initialItem}) {
+  static Future<bool?> show(
+    BuildContext context, {
+    TransactionItem? initialItem,
+    DateTime? initialDate,
+  }) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => AddTransactionSheet(initialItem: initialItem),
+      builder: (ctx) => AddTransactionSheet(
+        initialItem: initialItem,
+        initialDate: initialDate,
+      ),
     );
   }
 
@@ -65,7 +73,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     final item = widget.initialItem;
     _isExpense = item != null ? !item.isIncome : true;
     _amount = item != null ? item.amount.abs() : 0;
-    _date = item?.date ?? DateTime.now();
+    _date = item?.date ?? widget.initialDate ?? DateTime.now();
     _nameCtrl = TextEditingController(text: item?.name ?? '');
     _memoCtrl = TextEditingController(text: item?.memo ?? '');
     _amountCtrl = TextEditingController(
