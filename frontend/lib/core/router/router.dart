@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/auth_model.dart';
@@ -105,20 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 
-CustomTransitionPage<void> _settingsPage(Widget child, LocalKey key) {
-  return CustomTransitionPage<void>(
-    key: key,
-    child: child,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
-        child: child,
-      );
-    },
-  );
+// CupertinoPage를 사용하면 플랫폼에 상관없이 iOS 스타일 왼쪽 엣지 스와이프
+// 뒤로가기 제스처가 기본으로 활성화된다.
+Page<void> _settingsPage(Widget child, LocalKey key) {
+  return CupertinoPage<void>(key: key, child: child);
 }
 
 class _RouterListenable extends ChangeNotifier {
