@@ -13,7 +13,9 @@ class AuthInterceptor extends Interceptor {
   final Dio dio;
   final Future<void> Function() onLogout;
 
-  bool _isRefreshing = false;
+  // 여러 요청이 동시에 401을 받아도 refresh는 한 번만 수행하고,
+  // 나머지 요청은 그 결과를 기다렸다가 새 토큰으로 재시도한다.
+  Future<String?>? _refreshFuture;
 
   @override
   Future<void> onRequest(
@@ -37,16 +39,34 @@ class AuthInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    if (err.response?.statusCode != 401 || _isRefreshing) {
+    if (err.response?.statusCode != 401) {
       return handler.next(err);
     }
 
-    _isRefreshing = true;
+    try {
+      final newAccessToken = await (_refreshFuture ??= _refresh());
+      if (newAccessToken == null) {
+        return handler.next(err);
+      }
+
+      // 원래 요청 재시도
+      final retryOptions = err.requestOptions
+        ..headers['Authorization'] = 'Bearer $newAccessToken';
+      final retryRes = await dio.fetch<dynamic>(retryOptions);
+      return handler.resolve(retryRes);
+    } on DioException {
+      // refresh 실패 → 세션 만료로 처리하고 원래 에러 전파
+      await onLogout();
+      return handler.reject(err);
+    }
+  }
+
+  Future<String?> _refresh() async {
     try {
       final refreshToken = await tokenStorage.getRefreshToken();
       if (refreshToken == null) {
         await onLogout();
-        return handler.next(err);
+        return null;
       }
 
       final res = await dio.post<Map<String, dynamic>>(
@@ -59,18 +79,9 @@ class AuthInterceptor extends Interceptor {
         accessToken: newAccessToken,
         refreshToken: refreshToken,
       );
-
-      // 원래 요청 재시도
-      final retryOptions = err.requestOptions
-        ..headers['Authorization'] = 'Bearer $newAccessToken';
-      final retryRes = await dio.fetch<dynamic>(retryOptions);
-      return handler.resolve(retryRes);
-    } on DioException {
-      // refresh 실패 → 세션 만료로 처리하고 원래 에러 전파
-      await onLogout();
-      return handler.reject(err);
+      return newAccessToken;
     } finally {
-      _isRefreshing = false;
+      _refreshFuture = null;
     }
   }
 }
