@@ -7,13 +7,16 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
+import '../../../../shared/widgets/collapsible_category_picker.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/gradient_background.dart';
 import '../../domain/space_model.dart';
+import '../providers/space_provider.dart';
 import '../providers/space_schedule_provider.dart';
 
 /// Space의 고정수입/고정지출을 관리하는 화면.
-/// 개인 공간과 달리 매월 반복만 지원하고, 수정 없이 추가/삭제만 가능한 간소화 버전.
+/// 개인 공간의 고정수입/고정지출 추가 폼과 동일한 반복 유형·날짜/요일 선택·카테고리
+/// 선택을 지원하되, 수정 없이 추가/삭제만 가능한 간소화 버전.
 class SpaceDetailScreen extends ConsumerWidget {
   const SpaceDetailScreen({super.key, required this.space});
   final SpaceModel space;
@@ -71,7 +74,9 @@ class SpaceDetailScreen extends ConsumerWidget {
                                   id: i.id,
                                   name: i.name,
                                   amount: i.expectedAmount,
+                                  frequency: i.frequency,
                                   day: i.scheduledDay,
+                                  dayOfWeek: i.dayOfWeek,
                                   isIncome: true,
                                 ))
                             .toList(),
@@ -105,7 +110,9 @@ class SpaceDetailScreen extends ConsumerWidget {
                                   id: e.id,
                                   name: e.name,
                                   amount: e.amount,
+                                  frequency: e.frequency,
                                   day: e.billingDay,
+                                  dayOfWeek: e.dayOfWeek,
                                   isIncome: false,
                                 ))
                             .toList(),
@@ -144,14 +151,17 @@ class SpaceDetailScreen extends ConsumerWidget {
     final result = await AppBottomSheet.show<_ScheduleFormResult>(
       context,
       title: '고정 수입 추가',
-      child: const _ScheduleForm(),
+      child: _ScheduleForm(spaceId: space.id, color: AppColors.income),
     );
     if (result == null) return;
     await ref.read(spaceScheduleRepositoryProvider).createIncome(
           space.id,
           name: result.name,
           amount: result.amount,
-          scheduledDay: result.day,
+          frequency: result.frequency,
+          scheduledDay: result.scheduledDay,
+          dayOfWeek: result.dayOfWeek,
+          categoryId: result.categoryId,
         );
     ref.invalidate(spaceFixedIncomesProvider(space.id));
   }
@@ -160,14 +170,17 @@ class SpaceDetailScreen extends ConsumerWidget {
     final result = await AppBottomSheet.show<_ScheduleFormResult>(
       context,
       title: '고정 지출 추가',
-      child: const _ScheduleForm(),
+      child: _ScheduleForm(spaceId: space.id, color: AppColors.expense),
     );
     if (result == null) return;
     await ref.read(spaceScheduleRepositoryProvider).createFixedExpense(
           space.id,
           name: result.name,
           amount: result.amount,
-          billingDay: result.day,
+          frequency: result.frequency,
+          billingDay: result.scheduledDay,
+          dayOfWeek: result.dayOfWeek,
+          categoryId: result.categoryId,
         );
     ref.invalidate(spaceFixedExpensesProvider(space.id));
   }
@@ -178,14 +191,18 @@ class _ScheduleRowData {
     required this.id,
     required this.name,
     required this.amount,
+    required this.frequency,
     required this.day,
+    required this.dayOfWeek,
     required this.isIncome,
   });
 
   final int id;
   final String name;
   final double amount;
+  final String frequency;
   final int? day;
+  final int? dayOfWeek;
   final bool isIncome;
 }
 
@@ -261,10 +278,17 @@ class _ScheduleRow extends StatelessWidget {
   final NumberFormat fmt;
   final VoidCallback onDelete;
 
-  String get _dayLabel {
+  static const _dowLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  String get _scheduleLabel {
+    final dow = item.dayOfWeek;
     final day = item.day;
-    if (day == null) return '매월';
-    return day >= 31 ? '매월 말일' : '매월 $day일';
+    return switch (item.frequency) {
+      'weekly'   => '매주 ${dow != null ? _dowLabels[dow] : '?'}요일',
+      'biweekly' => '격주 ${dow != null ? _dowLabels[dow] : '?'}요일',
+      'daily'    => '매일',
+      _          => day != null ? (day >= 31 ? '매월 말일' : '매월 $day일') : '매월',
+    };
   }
 
   @override
@@ -297,7 +321,7 @@ class _ScheduleRow extends StatelessWidget {
               children: [
                 Text(item.name,
                     style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
-                Text(_dayLabel,
+                Text(_scheduleLabel,
                     style: tt.bodySmall?.copyWith(color: AppColors.textSecondary)),
               ],
             ),
@@ -360,23 +384,61 @@ class _AddRow extends StatelessWidget {
 }
 
 class _ScheduleFormResult {
-  const _ScheduleFormResult({required this.name, required this.amount, required this.day});
+  const _ScheduleFormResult({
+    required this.name,
+    required this.amount,
+    required this.frequency,
+    this.scheduledDay,
+    this.dayOfWeek,
+    this.categoryId,
+  });
   final String name;
   final double amount;
-  final int day;
+  final String frequency;
+  final int? scheduledDay;
+  final int? dayOfWeek;
+  final int? categoryId;
 }
 
-class _ScheduleForm extends StatefulWidget {
-  const _ScheduleForm();
+class _ScheduleForm extends ConsumerStatefulWidget {
+  const _ScheduleForm({required this.spaceId, required this.color});
+  final int spaceId;
+  final Color color;
 
   @override
-  State<_ScheduleForm> createState() => _ScheduleFormState();
+  ConsumerState<_ScheduleForm> createState() => _ScheduleFormState();
 }
 
-class _ScheduleFormState extends State<_ScheduleForm> {
+class _ScheduleFormState extends ConsumerState<_ScheduleForm> {
   final _nameCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
-  int _day = 1;
+  int _amount = 0;
+  String _frequency = 'monthly';
+  int? _scheduledDay;
+  int? _dayOfWeek;
+  int? _categoryId;
+  bool _showCategoryPicker = false;
+  bool _showDayPicker = false;
+
+  static const _frequencies = [
+    ('monthly',  '매월'),
+    ('weekly',   '매주'),
+    ('biweekly', '격주'),
+    ('daily',    '매일'),
+  ];
+
+  bool get _canSave {
+    if (_nameCtrl.text.trim().isEmpty || _amount <= 0) return false;
+    if (_frequency == 'monthly' && _scheduledDay == null) return false;
+    if ((_frequency == 'weekly' || _frequency == 'biweekly') && _dayOfWeek == null) return false;
+    return true;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -386,15 +448,20 @@ class _ScheduleFormState extends State<_ScheduleForm> {
   }
 
   void _submit() {
-    final name = _nameCtrl.text.trim();
-    final amount = double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0;
-    if (name.isEmpty || amount <= 0) return;
-    Navigator.of(context).pop(_ScheduleFormResult(name: name, amount: amount, day: _day));
+    Navigator.of(context).pop(_ScheduleFormResult(
+      name: _nameCtrl.text.trim(),
+      amount: _amount.toDouble(),
+      frequency: _frequency,
+      scheduledDay: _scheduledDay,
+      dayOfWeek: _dayOfWeek,
+      categoryId: _categoryId,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final color = widget.color;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -402,57 +469,293 @@ class _ScheduleFormState extends State<_ScheduleForm> {
       children: [
         AppTextField(controller: _nameCtrl, label: '이름', hint: '예: 월세, 구독료', autofocus: true),
         const SizedBox(height: AppSpacing.md),
-        AppTextField(
-          controller: _amountCtrl,
+        AmountTextField(
           label: '금액',
-          keyboardType: TextInputType.number,
-          suffixText: '원',
+          controller: _amountCtrl,
+          onChanged: (v) => setState(() => _amount = v),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text('매월 며칠', style: tt.labelLarge),
+
+        // ── 반복 유형 선택 ──
+        Text('반복', style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.sm),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 7,
-          mainAxisSpacing: 6,
-          crossAxisSpacing: 6,
-          children: List.generate(31, (i) {
-            final day = i + 1;
-            final isLast = day == 31;
-            final isSelected = day == _day;
-            return GestureDetector(
-              onTap: () => setState(() => _day = day),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(8),
+        Row(
+          children: _frequencies.map((opt) {
+            final (val, label) = opt;
+            final isSel = _frequency == val;
+            final isLast = val == 'daily';
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _frequency = val;
+                  if (val == 'monthly') _dayOfWeek = null;
+                  if (val != 'monthly') _scheduledDay = null;
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: isLast ? 0 : AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSel ? color.withValues(alpha: 0.1) : const Color(0x0A000000),
+                    borderRadius: AppRadius.buttonBorderRadius,
+                    border: Border.all(color: isSel ? color : AppColors.divider),
+                  ),
+                  child: Center(
+                    child: Text(label, style: tt.labelMedium?.copyWith(
+                      color: isSel ? color : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
+                    )),
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  isLast ? '말일' : '$day',
-                  style: tt.bodySmall?.copyWith(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
-                    fontSize: isLast ? 9 : null,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // ── 날짜/요일 피커 ──
+        if (_frequency == 'monthly')
+          _InlineDayPicker(
+            label: '날짜',
+            value: _scheduledDay,
+            color: color,
+            isOpen: _showDayPicker,
+            onToggle: () => setState(() {
+              _showDayPicker = !_showDayPicker;
+              if (_showDayPicker) _showCategoryPicker = false;
+            }),
+            onChanged: (v) => setState(() => _scheduledDay = v),
+          )
+        else if (_frequency == 'weekly' || _frequency == 'biweekly')
+          _DowPicker(
+            label: '요일',
+            value: _dayOfWeek,
+            color: color,
+            onChanged: (v) => setState(() => _dayOfWeek = v),
+          ),
+
+        const SizedBox(height: AppSpacing.md),
+        ref.watch(spaceCategoryItemsProvider(widget.spaceId)).when(
+          data: (items) {
+            final selected = items.where((c) => c.id == _categoryId).firstOrNull;
+            return CollapsibleCategoryPicker(
+              items: items,
+              selected: selected,
+              expanded: _showCategoryPicker,
+              accentColor: color,
+              onToggle: () => setState(() {
+                _showCategoryPicker = !_showCategoryPicker;
+                if (_showCategoryPicker) _showDayPicker = false;
+              }),
+              onSelected: (c) => setState(() {
+                _categoryId = c.id;
+                _showCategoryPicker = false;
+              }),
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        ElevatedButton(
+          onPressed: _canSave ? _submit : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: color.withValues(alpha: 0.35),
+            disabledForegroundColor: Colors.white70,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorderRadius),
+          ),
+          child: Text('추가', style: tt.labelLarge),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 날짜 피커 ──────────────────────────────────────────────────
+
+class _InlineDayPicker extends StatelessWidget {
+  const _InlineDayPicker({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.isOpen,
+    required this.onToggle,
+    required this.onChanged,
+  });
+  final String label;
+  final int? value;
+  final Color color;
+  final bool isOpen;
+  final VoidCallback onToggle;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final hasValue = value != null;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: const Color(0x0A000000),
+        borderRadius: AppRadius.buttonBorderRadius,
+        border: Border.all(
+            color: isOpen
+                ? color
+                : hasValue
+                    ? color.withValues(alpha: 0.5)
+                    : AppColors.divider,
+            width: isOpen ? 1.5 : 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+              child: Row(
+                children: [
+                  Text(
+                    label,
+                    style: tt.bodyLarge?.copyWith(
+                      color: hasValue
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (hasValue)
+                    Text(
+                      value == 31 ? '매월 말일' : '매월 ${value}일',
+                      style: tt.bodyMedium?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  const SizedBox(width: AppSpacing.xs),
+                  AnimatedRotation(
+                    turns: isOpen ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more_rounded,
+                        size: 20, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState:
+                isOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisSpacing: AppSpacing.xs,
+                  crossAxisSpacing: AppSpacing.xs,
+                  childAspectRatio: 1,
+                ),
+                itemCount: 31,
+                itemBuilder: (_, i) {
+                  final day = i + 1;
+                  final isSel = day == value;
+                  final isLast = day == 31;
+                  return GestureDetector(
+                    onTap: () {
+                      onChanged(day);
+                      if (isOpen) onToggle();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      decoration: BoxDecoration(
+                        color: isSel
+                            ? color
+                            : color.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        isLast ? '말일' : '$day',
+                        style: tt.labelSmall?.copyWith(
+                          color: isSel ? Colors.white : AppColors.textPrimary,
+                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                          fontSize: isLast ? 8 : null,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 요일 피커 ──────────────────────────────────────────────────
+
+class _DowPicker extends StatelessWidget {
+  const _DowPicker({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int? value;
+  final Color color;
+  final ValueChanged<int?> onChanged;
+
+  static const _labels = ['월', '화', '수', '목', '금', '토', '일'];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: List.generate(7, (i) {
+            final isSel = value == i;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: i < 6 ? AppSpacing.xs : 0),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSel ? color.withValues(alpha: 0.12) : const Color(0x0A000000),
+                    borderRadius: AppRadius.buttonBorderRadius,
+                    border: Border.all(color: isSel ? color : AppColors.divider),
+                  ),
+                  child: Center(
+                    child: Text(_labels[i], style: tt.labelMedium?.copyWith(
+                      color: isSel ? color : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                    )),
                   ),
                 ),
               ),
             );
           }),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        ElevatedButton(
-          onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            shape: RoundedRectangleBorder(borderRadius: AppRadius.buttonBorderRadius),
-          ),
-          child: const Text('추가'),
         ),
       ],
     );

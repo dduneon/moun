@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import '../domain/space_schedule_model.dart';
 
-/// Space 고정수입/고정지출 — 개인용 대비 간소화된 버전 (월별 반복만 지원,
-/// 수정 없이 추가/삭제만 가능. 좀 더 정교한 반복 주기·버전 관리가 필요해지면
-/// 개인용 SettingsRepository 패턴을 참고해 확장하면 된다).
+/// Space 고정수입/고정지출 — 개인용 대비 간소화된 버전 (수정 없이 추가/삭제만
+/// 가능. 좀 더 정교한 버전 관리가 필요해지면 개인용 SettingsRepository
+/// 패턴을 참고해 확장하면 된다).
 class SpaceScheduleRepository {
   SpaceScheduleRepository(this._dio);
   final Dio _dio;
@@ -20,16 +20,20 @@ class SpaceScheduleRepository {
     int spaceId, {
     required String name,
     required double amount,
-    required int scheduledDay,
+    required String frequency,
+    int? scheduledDay,
+    int? dayOfWeek,
     int? categoryId,
+    bool includeCurrentCycle = true,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/spaces/$spaceId/incomes', data: {
       'name': name,
       'expected_amount': amount,
-      'frequency': 'monthly',
+      'frequency': frequency,
       'scheduled_day': scheduledDay,
+      'day_of_week': dayOfWeek,
       if (categoryId != null) 'category_id': categoryId,
-      'include_current_cycle': true,
+      'include_current_cycle': includeCurrentCycle,
     });
     return SpaceFixedIncomeItem.fromJson(res.data!);
   }
@@ -49,17 +53,21 @@ class SpaceScheduleRepository {
     int spaceId, {
     required String name,
     required double amount,
-    required int billingDay,
+    required String frequency,
+    int? billingDay,
+    int? dayOfWeek,
     int? categoryId,
+    bool includeCurrentCycle = true,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/spaces/$spaceId/fixed-expenses', data: {
       'name': name,
       'amount': amount,
-      'frequency': 'monthly',
+      'frequency': frequency,
       'billing_day': billingDay,
+      'day_of_week': dayOfWeek,
       'payment_method': 'account',
       if (categoryId != null) 'category_id': categoryId,
-      'include_current_cycle': true,
+      'include_current_cycle': includeCurrentCycle,
     });
     return SpaceFixedExpenseItem.fromJson(res.data!);
   }
