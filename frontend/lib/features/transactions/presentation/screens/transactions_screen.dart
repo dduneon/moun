@@ -498,6 +498,17 @@ class _TransactionRow extends StatelessWidget {
                     ],
                   ],
                 ),
+                if (item.memo != null && item.memo!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.memo!,
+                    style: tt.labelSmall?.copyWith(
+                      color: AppColors.textSecondary.withValues(alpha: 0.7),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
