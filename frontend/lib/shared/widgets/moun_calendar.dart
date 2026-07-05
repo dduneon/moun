@@ -60,10 +60,16 @@ class _MounCalendarState extends State<MounCalendar> {
 
   void _nextMonth() {
     final next = DateTime(_month.year, _month.month + 1);
-    final limit = DateTime(DateTime.now().year, DateTime.now().month + 1);
-    if (next.isAfter(limit)) return; // 다음 달까지만 허용
     setState(() => _month = next);
     widget.onMonthChanged?.call(next);
+  }
+
+  void _goToCurrentMonth() {
+    final now = DateTime.now();
+    final current = DateTime(now.year, now.month);
+    if (_month.year == current.year && _month.month == current.month) return;
+    setState(() => _month = current);
+    widget.onMonthChanged?.call(current);
   }
 
   DayData _dataFor(DateTime day) =>
@@ -75,8 +81,7 @@ class _MounCalendarState extends State<MounCalendar> {
     final tt = Theme.of(context).textTheme;
     final days = _buildDays();
     final now = DateTime.now();
-    final limit = DateTime(now.year, now.month + 1);
-    final isAtLimit = _month.year == limit.year && _month.month == limit.month;
+    final isCurrentMonth = _month.year == now.year && _month.month == now.month;
 
     return Column(
       children: [
@@ -93,12 +98,17 @@ class _MounCalendarState extends State<MounCalendar> {
                 child: Text(_monthFmt.format(_month), style: tt.titleLarge),
               ),
             ),
+            if (!isCurrentMonth)
+              IconButton(
+                icon: const Icon(Icons.today_rounded),
+                color: AppColors.textPrimary,
+                tooltip: '이번 달로 이동',
+                onPressed: _goToCurrentMonth,
+              ),
             IconButton(
-              icon: Icon(Icons.chevron_right_rounded,
-                  color: isAtLimit
-                      ? AppColors.divider.withValues(alpha: 8.0)
-                      : AppColors.textPrimary),
-              onPressed: isAtLimit ? null : _nextMonth,
+              icon: const Icon(Icons.chevron_right_rounded),
+              color: AppColors.textPrimary,
+              onPressed: _nextMonth,
             ),
           ],
         ),
