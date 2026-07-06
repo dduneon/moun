@@ -38,37 +38,43 @@ class MounApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final overlayStyle = isDark
-        ? SystemUiOverlayStyle.light.copyWith(
-            statusBarColor: Colors.transparent,
-          )
-        : SystemUiOverlayStyle.dark.copyWith(
-            statusBarColor: Colors.transparent,
-          );
-
-    if (_showDesignShowcase) {
+    // 실제 화면에 적용된 테마 밝기(Theme.of(context).brightness) 기준으로
+    // 상태바 아이콘 색을 정한다. MaterialApp 바깥에서 시스템 다크모드 설정만
+    // 보고 판단하면, 실제 렌더링된 배경 색과 어긋나 흰 배경에 흰 아이콘이
+    // 겹치는 문제가 생길 수 있다.
+    Widget statusBarStyleBuilder(BuildContext context, Widget? child) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final overlayStyle = isDark
+          ? SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+            )
+          : SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+            );
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value: overlayStyle,
-        child: MaterialApp(
-          title: appName,
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
-          home: const DesignShowcaseScreen(),
-          debugShowCheckedModeBanner: false,
-        ),
+        child: child!,
       );
     }
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: overlayStyle,
-      child: MaterialApp.router(
+    if (_showDesignShowcase) {
+      return MaterialApp(
         title: appName,
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
-        routerConfig: ref.watch(routerProvider),
+        home: const DesignShowcaseScreen(),
         debugShowCheckedModeBanner: false,
-      ),
+        builder: statusBarStyleBuilder,
+      );
+    }
+
+    return MaterialApp.router(
+      title: appName,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      routerConfig: ref.watch(routerProvider),
+      debugShowCheckedModeBanner: false,
+      builder: statusBarStyleBuilder,
     );
   }
 }
