@@ -257,6 +257,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           children: [
                             Row(
                               children: [
+                                const Icon(Icons.arrow_circle_down_rounded,
+                                    color: AppColors.expense, size: 14),
+                                const SizedBox(width: 4),
+                                Text('총 지출', style: tt.labelSmall),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            AmountDisplay(
+                              amount: -budget.totalSpent.round(),
+                              size: AmountSize.small,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: GlassCard(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
                                 const Icon(Icons.repeat_rounded,
                                     color: AppColors.expensePending, size: 14),
                                 const SizedBox(width: 4),
