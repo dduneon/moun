@@ -77,7 +77,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     : txByDayAsync.when(
                         data: (txByDay) => _SummaryCard(
                           cycle: cycle,
-                          txByDay: txByDay,
+                          txByDay: _applyFilter(txByDay),
+                          isFiltered: !_filter.contains('전체') || _excludeFixed,
                         ).animate(delay: 60.ms).fadeIn(),
                         loading: () => const SizedBox.shrink(),
                         error: (e, st) => const SizedBox.shrink(),
@@ -208,10 +209,15 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.cycle, required this.txByDay});
+  const _SummaryCard({
+    required this.cycle,
+    required this.txByDay,
+    this.isFiltered = false,
+  });
 
   final BudgetCycle cycle;
   final Map<DateTime, List<TransactionItem>> txByDay;
+  final bool isFiltered;
 
   static final _dateFmt = DateFormat('M월 d일', 'ko');
 
@@ -240,6 +246,25 @@ class _SummaryCard extends StatelessWidget {
                 '${_dateFmt.format(cycle.startDate)} – 오늘',
                 style: tt.labelSmall?.copyWith(color: AppColors.textSecondary),
               ),
+              if (isFiltered) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '필터 적용됨',
+                    style: tt.labelSmall?.copyWith(
+                      fontSize: 10,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.md),
