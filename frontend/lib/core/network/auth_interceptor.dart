@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
+/// refresh token 자체가 서버로부터 명시적으로 거부(401)된 경우를 구분하기 위한 내부 신호.
+class _RefreshRejected implements Exception {}
+
 /// Authorization 헤더 자동 추가 + 401 시 refresh 후 재시도.
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
@@ -54,9 +57,13 @@ class AuthInterceptor extends Interceptor {
         ..headers['Authorization'] = 'Bearer $newAccessToken';
       final retryRes = await dio.fetch<dynamic>(retryOptions);
       return handler.resolve(retryRes);
-    } on DioException {
-      // refresh 실패 → 세션 만료로 처리하고 원래 에러 전파
+    } on _RefreshRejected {
+      // 서버가 refresh token 자체를 명시적으로 거부(401) → 세션 만료로 처리
       await onLogout();
+      return handler.reject(err);
+    } on DioException {
+      // 네트워크 타임아웃 등 일시적 오류 → 세션은 유지하고 원래 에러만 전파
+      // (예: 앱이 오래 백그라운드에 있다 깨어난 직후 네트워크 미연결 상태)
       return handler.reject(err);
     }
   }
@@ -80,6 +87,11 @@ class AuthInterceptor extends Interceptor {
         refreshToken: refreshToken,
       );
       return newAccessToken;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw _RefreshRejected();
+      }
+      rethrow;
     } finally {
       _refreshFuture = null;
     }

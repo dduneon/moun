@@ -30,18 +30,34 @@ class AuthNotifier extends Notifier<AuthState> {
     }
 
     // access token이 만료됐을 수 있으므로 먼저 refresh를 시도한다.
-    try {
-      final newAccessToken = await _repo.refresh(refreshToken);
-      await _storage.saveTokens(
-        accessToken: newAccessToken,
-        refreshToken: refreshToken,
-      );
-    } on DioException {
-      // refresh 실패 = refresh token 만료 또는 서버 오류 → 로그아웃
-      await _storage.clearTokens();
-      state = const AuthStateUnauthenticated();
-      return;
+    // 앱이 오래 백그라운드에 있다 깨어난 직후에는 아직 네트워크가 붙지 않아
+    // 일시적으로 실패하는 경우가 흔하므로, 서버가 명시적으로 401을 반환한
+    // 경우에만 세션 만료로 간주하고 그 외 네트워크 오류는 짧게 재시도한다.
+    const maxAttempts = 3;
+    String? newAccessToken;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        newAccessToken = await _repo.refresh(refreshToken);
+        break;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          await _storage.clearTokens();
+          state = const AuthStateUnauthenticated();
+          return;
+        }
+        if (attempt == maxAttempts) {
+          // 네트워크 오류가 계속되는 경우: 토큰은 유지하되 로그인 화면으로
+          // 돌아가 사용자가 재시도할 수 있게 한다 (임의 로그아웃 방지).
+          state = const AuthStateUnauthenticated();
+          return;
+        }
+        await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+      }
     }
+    await _storage.saveTokens(
+      accessToken: newAccessToken!,
+      refreshToken: refreshToken,
+    );
 
     try {
       final user = await _repo.getMe();
