@@ -548,8 +548,8 @@ class _BudgetCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           _BudgetProgressBar(
-            spent: budget.variableExpense.round(),
-            total: (budget.expectedIncome - budget.totalFixedExpense).clamp(0, double.infinity).round(),
+            spent: (budget.variableExpense + budget.totalFixedExpense).round(),
+            total: budget.expectedIncome.clamp(0, double.infinity).round(),
           ),
         ],
       ),
