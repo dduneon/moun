@@ -38,6 +38,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedDay = DateTime(now.year, now.month, now.day);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(selectedCalendarDateProvider.notifier).state = _selectedDay;
+    });
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
