@@ -118,7 +118,7 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsTile(
                       icon: Icons.repeat_rounded,
                       iconColor: AppColors.expense,
-                      label: '고정 지출',
+                      label: '고정 지출·저축',
                       onTap: () => context.push('/settings/fixed-expense'),
                     ),
                   ],

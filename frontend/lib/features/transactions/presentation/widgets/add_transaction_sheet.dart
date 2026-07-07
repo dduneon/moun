@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/constants/category_type_names.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
@@ -15,6 +16,7 @@ import '../../../spaces/domain/space_model.dart';
 import '../../../spaces/presentation/providers/space_budget_provider.dart';
 import '../../../spaces/presentation/providers/space_provider.dart';
 import '../../../spaces/presentation/providers/space_transaction_provider.dart';
+import '../../domain/transaction_models.dart';
 import '../providers/transaction_provider.dart';
 
 class AddTransactionSheet extends ConsumerStatefulWidget {
@@ -44,7 +46,7 @@ class AddTransactionSheet extends ConsumerStatefulWidget {
 }
 
 class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
-  late bool _isExpense;
+  late TransactionType _type;
   late int _amount;
   CategoryItem? _category;
   late DateTime _date;
@@ -71,7 +73,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   void initState() {
     super.initState();
     final item = widget.initialItem;
-    _isExpense = item != null ? !item.isIncome : true;
+    _type = item?.type ?? TransactionType.expense;
     _amount = item != null ? item.amount.abs() : 0;
     _date = item?.date ?? widget.initialDate ?? DateTime.now();
     _nameCtrl = TextEditingController(text: item?.name ?? '');
@@ -116,22 +118,27 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     });
   }
 
-  static const _incomeNames = {'급여', '부업', '투자', '기타수입', '수입'};
-  static const _systemNames = {'고정지출'};
-
   List<CategoryItem> _filterCategories(List<CategoryItem> all) => all
-      .where((c) => _systemNames.contains(c.label)
-          ? false
-          : _isExpense
-              ? !_incomeNames.contains(c.label)
-              : _incomeNames.contains(c.label))
+      .where((c) {
+        if (systemCategoryNames.contains(c.label)) return false;
+        return switch (_type) {
+          TransactionType.income => incomeCategoryNames.contains(c.label),
+          TransactionType.saving => savingCategoryNames.contains(c.label),
+          TransactionType.expense =>
+            !incomeCategoryNames.contains(c.label) && !savingCategoryNames.contains(c.label),
+        };
+      })
       .toList();
 
   // Space 카테고리는 사용자가 자유롭게 이름을 짓기 때문에 수입/지출을
   // 이름으로 구분할 수 없다 — 전체 목록을 그대로 보여준다.
   List<CategoryItem> _noFilter(List<CategoryItem> all) => all;
 
-  Color get _accentColor => _isExpense ? AppColors.expense : AppColors.income;
+  Color get _accentColor => switch (_type) {
+        TransactionType.expense => AppColors.expense,
+        TransactionType.income => AppColors.income,
+        TransactionType.saving => AppColors.saving,
+      };
 
   Future<void> _submit() async {
     if (_amount <= 0) {
@@ -149,7 +156,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
     setState(() => _loading = true);
     try {
-      final finalAmount = _isExpense ? -_amount : _amount;
+      final finalAmount = _type == TransactionType.income ? _amount : -_amount;
       final name = _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim();
       final memo = _memoCtrl.text.trim().isEmpty ? null : _memoCtrl.text.trim();
 
@@ -172,6 +179,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
           await repo.update(
             widget.initialItem!.id,
             amount: finalAmount,
+            type: _type,
             categoryId: effectiveCategory.id,
             transactionDate: _date,
             name: name,
@@ -180,6 +188,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
         } else {
           await repo.create(
             amount: finalAmount,
+            type: _type,
             categoryId: effectiveCategory.id,
             paymentMethod: 'cash',
             transactionDate: _date,
@@ -261,10 +270,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            TransactionTypeToggle(
-              isExpense: _isExpense,
+            TransactionTypeSelector(
+              type: _type,
+              allowSaving: !isSpaceMode,
               onChanged: (v) => setState(() {
-                _isExpense = v;
+                _type = v;
                 if (!_isEditMode) _category = null;
               }),
             ),
@@ -289,7 +299,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             _CategoryField(
               expanded: _showCategoryPicker,
               selected: _category ?? widget.initialItem?.category,
-              isExpense: _isExpense,
+              type: _type,
               accentColor: accent,
               onToggle: _openCategory,
               onSelected: (c) => setState(() {
@@ -682,7 +692,7 @@ class _CategoryField extends StatelessWidget {
   const _CategoryField({
     required this.expanded,
     required this.selected,
-    required this.isExpense,
+    required this.type,
     required this.accentColor,
     required this.onToggle,
     required this.onSelected,
@@ -692,7 +702,7 @@ class _CategoryField extends StatelessWidget {
 
   final bool expanded;
   final CategoryItem? selected;
-  final bool isExpense;
+  final TransactionType type;
   final Color accentColor;
   final VoidCallback onToggle;
   final ValueChanged<CategoryItem> onSelected;
@@ -770,7 +780,7 @@ class _CategoryField extends StatelessWidget {
                     data: (all) {
                       final items = filterCategories(all);
                       if (items.isEmpty) {
-                        return Text('카테고리를 불러오는 중...',
+                        return Text('사용 가능한 카테고리가 없어요.',
                             style: tt.bodyMedium
                                 ?.copyWith(color: AppColors.textSecondary));
                       }
@@ -785,9 +795,11 @@ class _CategoryField extends StatelessWidget {
                       child: Center(child: CircularProgressIndicator()),
                     ),
                     error: (_, e) => CategoryGrid(
-                      items: isExpense
-                          ? defaultExpenseCategories
-                          : defaultIncomeCategories,
+                      items: switch (type) {
+                        TransactionType.income => defaultIncomeCategories,
+                        TransactionType.saving => defaultSavingCategories,
+                        TransactionType.expense => defaultExpenseCategories,
+                      },
                       selectedId: selected?.id,
                       onSelected: onSelected,
                     ),

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/constants/category_type_names.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
@@ -534,9 +535,7 @@ class _AddIncomeFormState extends ConsumerState<_AddIncomeForm> {
         const SizedBox(height: AppSpacing.md),
         ref.watch(categoryItemsProvider).when(
           data: (all) {
-            const incomeNames = {'급여', '부업', '투자', '기타수입'};
-            const systemNames = {'수입', '고정지출'};
-            final items = all.where((c) => incomeNames.contains(c.label) && !systemNames.contains(c.label)).toList();
+            final items = all.where((c) => incomeCategoryNames.contains(c.label)).toList();
             final selected = items.where((c) => c.id == _categoryId).firstOrNull;
             return CollapsibleCategoryPicker(
               items: items,

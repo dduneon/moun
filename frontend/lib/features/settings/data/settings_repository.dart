@@ -41,6 +41,7 @@ class FixedExpenseItem {
     required this.id,
     required this.name,
     required this.amount,
+    this.type = 'expense',
     required this.frequency,
     this.billingDay,
     this.dayOfWeek,
@@ -54,6 +55,7 @@ class FixedExpenseItem {
   final int id;
   final String name;
   final double amount;
+  final String type; // 'expense' | 'saving'
   final String frequency;
   final int? billingDay;
   final int? dayOfWeek;
@@ -63,10 +65,13 @@ class FixedExpenseItem {
   final int groupId;
   final DateTime effectiveFrom;
 
+  bool get isSaving => type == 'saving';
+
   factory FixedExpenseItem.fromJson(Map<String, dynamic> j) => FixedExpenseItem(
         id: j['id'] as int,
         name: j['name'] as String,
         amount: double.parse(j['amount'].toString()),
+        type: j['type'] as String? ?? 'expense',
         frequency: j['frequency']?.toString() ?? 'monthly',
         billingDay: j['billing_day'] as int?,
         dayOfWeek: j['day_of_week'] as int?,
@@ -144,6 +149,7 @@ class SettingsRepository {
   Future<FixedExpenseItem> createFixedExpense({
     required String name,
     required double amount,
+    String type = 'expense',
     String frequency = 'monthly',
     int? billingDay,
     int? dayOfWeek,
@@ -154,6 +160,7 @@ class SettingsRepository {
     final res = await _dio.post<Map<String, dynamic>>('/fixed-expenses', data: {
       'name': name,
       'amount': amount,
+      'type': type,
       'frequency': frequency,
       if (billingDay != null) 'billing_day': billingDay,
       if (dayOfWeek != null) 'day_of_week': dayOfWeek,
@@ -164,10 +171,11 @@ class SettingsRepository {
     return FixedExpenseItem.fromJson(res.data!);
   }
 
-  Future<void> updateFixedExpense(int id, {String? name, double? amount, String? frequency, int? billingDay, int? dayOfWeek, String? paymentMethod, DateTime? effectiveFrom}) =>
+  Future<void> updateFixedExpense(int id, {String? name, double? amount, String? type, String? frequency, int? billingDay, int? dayOfWeek, String? paymentMethod, DateTime? effectiveFrom}) =>
       _dio.patch<void>('/fixed-expenses/$id', data: {
         if (name != null) 'name': name,
         if (amount != null) 'amount': amount,
+        if (type != null) 'type': type,
         if (frequency != null) 'frequency': frequency,
         if (billingDay != null) 'billing_day': billingDay,
         if (dayOfWeek != null) 'day_of_week': dayOfWeek,

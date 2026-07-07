@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/constants/category_type_names.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/category_selector.dart';
@@ -32,7 +33,7 @@ class FixedExpenseScreen extends ConsumerWidget {
       builder: (ctx) => _EffectiveFromDialog(
         thisMonth: thisMonth,
         nextMonth: nextMonth,
-        itemLabel: '고정 지출',
+        itemLabel: '고정 항목',
       ),
     );
   }
@@ -55,13 +56,13 @@ class FixedExpenseScreen extends ConsumerWidget {
           if (effectiveFrom == null || !context.mounted) return;
           await AppBottomSheet.show(
             context,
-            title: '고정 지출 수정',
+            title: e.isSaving ? '고정 저축 수정' : '고정 지출 수정',
             child: _AddExpenseForm(
               initial: e,
-              onSave: (name, amount, frequency, billingDay, dayOfWeek, method, categoryId, _) async {
+              onSave: (name, amount, type, frequency, billingDay, dayOfWeek, method, categoryId, _) async {
                 await ref.read(settingsRepositoryProvider).updateFixedExpense(
                   e.id,
-                  name: name, amount: amount,
+                  name: name, amount: amount, type: type,
                   frequency: frequency, billingDay: billingDay, dayOfWeek: dayOfWeek,
                   paymentMethod: method, effectiveFrom: effectiveFrom,
                 );
@@ -118,7 +119,7 @@ class FixedExpenseScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.md),
-                      Text('고정 지출', style: tt.headlineMedium),
+                      Text('고정 지출·저축', style: tt.headlineMedium),
                   ],
                 ).animate().fadeIn(),
               ),
@@ -143,7 +144,7 @@ class FixedExpenseScreen extends ConsumerWidget {
                                     size: 48,
                                     color: AppColors.textSecondary),
                                 const SizedBox(height: AppSpacing.md),
-                                Text('등록된 고정 지출이 없어요',
+                                Text('등록된 고정 지출·저축이 없어요',
                                     style: tt.bodyMedium?.copyWith(
                                         color: AppColors.textSecondary)),
                               ],
@@ -163,19 +164,20 @@ class FixedExpenseScreen extends ConsumerWidget {
                               )),
                         const Divider(height: 1),
                         _AddRow(
-                          label: '고정 지출 추가',
+                          label: '고정 지출·저축 추가',
                           color: AppColors.expense,
                           onTap: () async {
                             await AppBottomSheet.show(
                               context,
-                              title: '고정 지출 추가',
+                              title: '고정 지출·저축 추가',
                               child: _AddExpenseForm(
-                                onSave: (name, amount, frequency, billingDay, dayOfWeek, method, categoryId, includeCurrentCycle) async {
+                                onSave: (name, amount, type, frequency, billingDay, dayOfWeek, method, categoryId, includeCurrentCycle) async {
                                   await ref
                                       .read(settingsRepositoryProvider)
                                       .createFixedExpense(
                                         name: name,
                                         amount: amount,
+                                        type: type,
                                         frequency: frequency,
                                         billingDay: billingDay,
                                         dayOfWeek: dayOfWeek,
@@ -252,6 +254,7 @@ class _ExpenseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final accent = item.isSaving ? AppColors.saving : AppColors.expense;
 
     return InkWell(
       onTap: onTap,
@@ -264,11 +267,12 @@ class _ExpenseRow extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.expense.withValues(alpha: 0.12),
+                color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.repeat_rounded,
-                  size: 18, color: AppColors.expense),
+              child: Icon(
+                item.isSaving ? Icons.savings_rounded : Icons.repeat_rounded,
+                size: 18, color: accent),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -310,7 +314,7 @@ class _ExpenseRow extends StatelessWidget {
             Text(
               '-${fmt.format((item.amount as num).round())}원',
               style: tt.bodyMedium?.copyWith(
-                  color: AppColors.expense, fontWeight: FontWeight.w600),
+                  color: accent, fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: AppSpacing.sm),
             const Icon(Icons.chevron_right_rounded,
@@ -366,6 +370,7 @@ class _AddExpenseForm extends ConsumerStatefulWidget {
   final Future<void> Function(
     String name,
     double amount,
+    String type,
     String frequency,
     int? billingDay,
     int? dayOfWeek,
@@ -383,6 +388,7 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _amountCtrl;
   late int _amount;
+  late String _type;
   late String _frequency;
   late int? _billingDay;
   late int? _dayOfWeek;
@@ -391,6 +397,11 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
   bool _showCategoryPicker = false;
   bool _showDayPicker = false;
   bool _saving = false;
+
+  static const _types = [
+    ('expense', '지출', AppColors.expense),
+    ('saving', '저축', AppColors.saving),
+  ];
 
   static const _methods = [
     ('account', '계좌이체'),
@@ -405,6 +416,13 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
     ('daily',    '매일'),
   ];
 
+  Color get _accentColor =>
+      _type == 'saving' ? AppColors.saving : AppColors.expense;
+
+  List<(String, String)> get _availableMethods => _type == 'saving'
+      ? _methods.where((m) => m.$1 != 'card').toList()
+      : _methods;
+
   bool get _canSave {
     if (_saving || _nameCtrl.text.trim().isEmpty || _amount <= 0) return false;
     if (_frequency == 'monthly' && _billingDay == null) return false;
@@ -417,6 +435,7 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
     super.initState();
     final init = widget.initial;
     _amount = init != null ? (init.amount as num).round() : 0;
+    _type = init?.type ?? 'expense';
     _frequency = init?.frequency ?? 'monthly';
     _billingDay = init?.billingDay as int?;
     _dayOfWeek = init?.dayOfWeek as int?;
@@ -472,10 +491,45 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ── 지출 / 저축 선택 ──
+        Row(
+          children: _types.map((opt) {
+            final (val, label, color) = opt;
+            final isSel = _type == val;
+            final isLast = val == _types.last.$1;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _type = val;
+                  if (val == 'saving' && _method == 'card') _method = 'account';
+                  _categoryId = null;
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(right: isLast ? 0 : AppSpacing.xs),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSel ? color.withValues(alpha: 0.1) : const Color(0x0A000000),
+                    borderRadius: AppRadius.buttonBorderRadius,
+                    border: Border.all(color: isSel ? color : AppColors.divider),
+                  ),
+                  child: Center(
+                    child: Text(label, style: tt.labelMedium?.copyWith(
+                      color: isSel ? color : AppColors.textSecondary,
+                      fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
+                    )),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: AppSpacing.md),
+
         AppTextField(
           controller: _nameCtrl,
           label: '이름',
-          hint: '넷플릭스, 월세, 보험료 등',
+          hint: _type == 'saving' ? '정기적금, 청약, 주식 매수 등' : '넷플릭스, 월세, 보험료 등',
           autofocus: true,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -507,13 +561,13 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
                   margin: EdgeInsets.only(right: isLast ? 0 : AppSpacing.xs),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSel ? AppColors.expense.withValues(alpha: 0.1) : const Color(0x0A000000),
+                    color: isSel ? _accentColor.withValues(alpha: 0.1) : const Color(0x0A000000),
                     borderRadius: AppRadius.buttonBorderRadius,
-                    border: Border.all(color: isSel ? AppColors.expense : AppColors.divider),
+                    border: Border.all(color: isSel ? _accentColor : AppColors.divider),
                   ),
                   child: Center(
                     child: Text(label, style: tt.labelMedium?.copyWith(
-                      color: isSel ? AppColors.expense : AppColors.textSecondary,
+                      color: isSel ? _accentColor : AppColors.textSecondary,
                       fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
                     )),
                   ),
@@ -540,7 +594,7 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
           _DowPicker(
             label: '요일',
             value: _dayOfWeek,
-            color: AppColors.expense,
+            color: _accentColor,
             onChanged: (v) => setState(() => _dayOfWeek = v),
           ),
 
@@ -548,7 +602,7 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
         Text('결제 수단', style: tt.bodyMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.sm),
         Row(
-          children: _methods.map((opt) {
+          children: _availableMethods.map((opt) {
             final (val, label) = opt;
             final isSel = _method == val;
             return Expanded(
@@ -577,15 +631,19 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
         const SizedBox(height: AppSpacing.md),
         ref.watch(categoryItemsProvider).when(
           data: (all) {
-            const incomeNames = {'급여', '부업', '투자', '기타수입', '수입'};
-            const systemNames = {'고정지출'};
-            final items = all.where((c) => !incomeNames.contains(c.label) && !systemNames.contains(c.label)).toList();
+            final items = all.where((c) {
+              if (systemCategoryNames.contains(c.label)) return false;
+              if (incomeCategoryNames.contains(c.label)) return false;
+              return _type == 'saving'
+                  ? savingCategoryNames.contains(c.label)
+                  : !savingCategoryNames.contains(c.label);
+            }).toList();
             final selected = items.where((c) => c.id == _categoryId).firstOrNull;
             return CollapsibleCategoryPicker(
               items: items,
               selected: selected,
               expanded: _showCategoryPicker,
-              accentColor: AppColors.expense,
+              accentColor: _accentColor,
               onToggle: () => setState(() {
                 _showCategoryPicker = !_showCategoryPicker;
                 if (_showCategoryPicker) _showDayPicker = false;
@@ -610,8 +668,8 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
                       builder: (ctx) => _CurrentCycleDialog(
                         subtitle: _dialogSubtitle(),
                         name: _nameCtrl.text.trim(),
-                        color: AppColors.expense,
-                        label: '지출',
+                        color: _accentColor,
+                        label: _type == 'saving' ? '저축' : '지출',
                       ),
                     );
                     if (result == null || !context.mounted) return;
@@ -621,6 +679,7 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
                   await widget.onSave(
                     _nameCtrl.text.trim(),
                     _amount.toDouble(),
+                    _type,
                     _frequency,
                     _billingDay,
                     _dayOfWeek,
@@ -632,9 +691,9 @@ class _AddExpenseFormState extends ConsumerState<_AddExpenseForm> {
                 }
               : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.expense,
+            backgroundColor: _accentColor,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.expense.withValues(alpha: 0.35),
+            disabledBackgroundColor: _accentColor.withValues(alpha: 0.35),
             disabledForegroundColor: Colors.white70,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
