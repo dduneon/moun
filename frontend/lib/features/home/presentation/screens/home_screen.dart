@@ -18,6 +18,7 @@ import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/moun_calendar.dart';
 import '../../../../shared/widgets/category_selector.dart' show CategoryItem;
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
+import '../../../transactions/domain/transaction_models.dart' show TransactionType;
 import '../../../transactions/presentation/widgets/add_transaction_sheet.dart';
 import '../../../spaces/domain/space_model.dart';
 import '../../../spaces/presentation/providers/space_provider.dart';
@@ -198,107 +199,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
 
-          // ── 수입 / 고정지출 카드 ────────────────────────────
+          // ── 수입 / 지출 / 저축 카드 ────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: budgetAsync.when(
-                data: (budget) => Row(
-                  children: [
-                    Expanded(
-                      child: GlassCard(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.arrow_circle_up_rounded,
-                                    color: AppColors.income, size: 14),
-                                const SizedBox(width: 4),
-                                Text('수입', style: tt.labelSmall),
-                                if (budget.hasPendingIncome) ...[
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.income.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '예정',
-                                      style: tt.labelSmall?.copyWith(
-                                        color: AppColors.income,
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            AmountDisplay(
-                              amount: budget.expectedIncome.round(),
-                              size: AmountSize.small,
-                            ),
-                          ],
-                        ),
-                      ),
+                data: (budget) {
+                  final cards = [
+                    _BudgetStatCard(
+                      icon: Icons.arrow_circle_up_rounded,
+                      color: AppColors.income,
+                      label: '수입',
+                      badge: budget.hasPendingIncome ? '예정' : null,
+                      amount: budget.expectedIncome.round(),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: GlassCard(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.arrow_circle_down_rounded,
-                                    color: AppColors.expense, size: 14),
-                                const SizedBox(width: 4),
-                                Text('총 지출', style: tt.labelSmall),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            AmountDisplay(
-                              amount: -budget.totalSpent.round(),
-                              size: AmountSize.small,
-                            ),
-                          ],
-                        ),
-                      ),
+                    _BudgetStatCard(
+                      icon: Icons.arrow_circle_down_rounded,
+                      color: AppColors.expense,
+                      label: '지출',
+                      badge: budget.hasPendingFixedExpense ? '예정포함' : null,
+                      amount: -budget.totalSpentWithPending.round(),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: GlassCard(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.repeat_rounded,
-                                    color: AppColors.expensePending, size: 14),
-                                const SizedBox(width: 4),
-                                Text('고정지출', style: tt.labelSmall),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            AmountDisplay(
-                              amount: -budget.totalFixedExpense.round(),
-                              size: AmountSize.small,
-                            ),
-                          ],
-                        ),
-                      ),
+                    _BudgetStatCard(
+                      icon: Icons.savings_rounded,
+                      color: AppColors.saving,
+                      label: '저축',
+                      amount: -budget.totalSaving.round(),
                     ),
-                  ],
-                ),
+                  ];
+
+                  return LayoutBuilder(builder: (context, constraints) {
+                    final cardWidth =
+                        (constraints.maxWidth - AppSpacing.sm * 2) / 3;
+                    return Row(
+                      children: [
+                        for (var i = 0; i < cards.length; i++) ...[
+                          if (i > 0) const SizedBox(width: AppSpacing.sm),
+                          SizedBox(width: cardWidth, child: cards[i]),
+                        ],
+                      ],
+                    );
+                  });
+                },
                 loading: () => const SizedBox(height: 44),
                 error: (e, _) => const SizedBox.shrink(),
               ).animate(delay: 200.ms).fadeIn(),
@@ -329,7 +271,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         .where((t) => t.isIncome)
                         .fold(0, (s, t) => s + t.amount);
                     final expense = items
-                        .where((t) => !t.isIncome)
+                        .where((t) => !t.isIncome && !t.isSaving)
                         .fold(0, (s, t) => s + t.amount.abs());
                     calendarData[day] = DayData(income: income, expense: expense);
                   });
@@ -359,8 +301,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   }
 
                   // 고정 지출: 이번 달 모든 발생일 추가 (과거는 txByDay에 실제 transaction 존재)
+                  // 고정 저축은 '소비'가 아니므로 실제 거래와 마찬가지로 지출 합계에서 제외한다.
                   for (final fe in fixedExpenses) {
-                    if (!fe.isActive) continue;
+                    if (!fe.isActive || fe.isSaving) continue;
                     final dates = _occurrenceDatesForMonth(
                       vm,
                       frequency: fe.frequency,
@@ -434,13 +377,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             id: -fe.id - 100000,
                             name: fe.name,
                             amount: -fe.amount.round(),
+                            type: fe.isSaving
+                                ? TransactionType.saving
+                                : TransactionType.expense,
                             date: d,
-                            category: const CategoryItem(
-                              id: 0,
-                              label: '고정 지출',
-                              icon: Icons.repeat_rounded,
-                              color: AppColors.expensePending,
-                            ),
+                            category: fe.isSaving
+                                ? const CategoryItem(
+                                    id: 0,
+                                    label: '고정 저축',
+                                    icon: Icons.savings_rounded,
+                                    color: AppColors.saving,
+                                  )
+                                : const CategoryItem(
+                                    id: 0,
+                                    label: '고정 지출',
+                                    icon: Icons.repeat_rounded,
+                                    color: AppColors.expensePending,
+                                  ),
                             isPending: true,
                             isFixed: true,
                           ));
@@ -590,6 +543,63 @@ class _BudgetCardSkeleton extends StatelessWidget {
   }
 }
 
+class _BudgetStatCard extends StatelessWidget {
+  const _BudgetStatCard({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.amount,
+    this.badge,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final int amount;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(label,
+                    style: tt.labelSmall, overflow: TextOverflow.ellipsis),
+              ),
+              if (badge != null) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: tt.labelSmall?.copyWith(color: color, fontSize: 9),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          AmountDisplay(amount: amount, size: AmountSize.small),
+        ],
+      ),
+    );
+  }
+}
+
 class _BudgetProgressBar extends StatelessWidget {
   const _BudgetProgressBar({required this.spent, required this.total});
   final int spent;
@@ -649,7 +659,10 @@ class _DayDetail extends ConsumerWidget {
         .where((t) => t.isIncome)
         .fold(0, (s, t) => s + t.amount);
     final totalExpense = transactions
-        .where((t) => !t.isIncome)
+        .where((t) => !t.isIncome && !t.isSaving)
+        .fold(0, (s, t) => s + t.amount.abs());
+    final totalSaving = transactions
+        .where((t) => t.isSaving)
         .fold(0, (s, t) => s + t.amount.abs());
 
     return GlassCard(
@@ -671,6 +684,13 @@ class _DayDetail extends ConsumerWidget {
                 Text('-${_amtFmt.format(totalExpense)}원',
                     style: tt.labelMedium?.copyWith(
                         color: AppColors.expense,
+                        fontWeight: FontWeight.w600)),
+              if ((totalIncome > 0 || totalExpense > 0) && totalSaving > 0)
+                const SizedBox(width: AppSpacing.sm),
+              if (totalSaving > 0)
+                Text('저축 ${_amtFmt.format(totalSaving)}원',
+                    style: tt.labelMedium?.copyWith(
+                        color: AppColors.saving,
                         fontWeight: FontWeight.w600)),
             ],
           ),
@@ -784,15 +804,23 @@ class _TransactionRow extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: (item.isIncome ? AppColors.income : AppColors.expensePending)
+                          color: (item.isIncome
+                                  ? AppColors.income
+                                  : item.isSaving
+                                      ? AppColors.saving
+                                      : AppColors.expensePending)
                               .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          item.isIncome ? '고정수입' : '고정지출',
+                          item.isIncome ? '고정수입' : item.isSaving ? '고정저축' : '고정지출',
                           style: tt.labelSmall?.copyWith(
                             fontSize: 10,
-                            color: item.isIncome ? AppColors.income : AppColors.expensePending,
+                            color: item.isIncome
+                                ? AppColors.income
+                                : item.isSaving
+                                    ? AppColors.saving
+                                    : AppColors.expensePending,
                           ),
                         ),
                       ),
@@ -818,12 +846,12 @@ class _TransactionRow extends StatelessWidget {
                 ? '+${_amtFmt.format(item.amount)}원'
                 : '-${_amtFmt.format(item.amount.abs())}원',
             style: tt.bodyMedium?.copyWith(
-              color: item.isPending
-                  ? (item.isIncome ? AppColors.income : AppColors.expense)
-                      .withValues(alpha: 0.5)
-                  : item.isIncome
+              color: (item.isIncome
                       ? AppColors.income
-                      : AppColors.expense,
+                      : item.isSaving
+                          ? AppColors.saving
+                          : AppColors.expense)
+                  .withValues(alpha: item.isPending ? 0.5 : 1),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -879,7 +907,11 @@ class _TransactionActionSheet extends StatelessWidget {
                 ? '+${amtFmt.format(item.amount)}원'
                 : '-${amtFmt.format(item.amount.abs())}원',
             style: tt.bodySmall?.copyWith(
-              color: item.isIncome ? AppColors.income : AppColors.expense,
+              color: item.isIncome
+                  ? AppColors.income
+                  : item.isSaving
+                      ? AppColors.saving
+                      : AppColors.expense,
             ),
           ),
         ),
