@@ -5,8 +5,9 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from app.models.fixed_expense import PaymentMethod
+from app.models.fixed_expense import FixedExpenseType, PaymentMethod
 from app.models.income import Frequency
+from app.models.transaction import TransactionType
 
 
 # ── Income ────────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ class IncomeDelete(BaseModel):
 class FixedExpenseCreate(BaseModel):
     name: str
     amount: Decimal
+    type: FixedExpenseType = FixedExpenseType.expense
     payment_method: PaymentMethod
     frequency: Frequency = Frequency.monthly
     billing_day: Optional[int] = None     # monthly용 (1~31)
@@ -68,6 +70,7 @@ class FixedExpenseResponse(BaseModel):
     id: int
     name: str
     amount: Decimal
+    type: FixedExpenseType
     payment_method: PaymentMethod
     frequency: Frequency
     billing_day: Optional[int]
@@ -85,6 +88,7 @@ class FixedExpenseResponse(BaseModel):
 class FixedExpensePatch(BaseModel):
     name: Optional[str] = None
     amount: Optional[Decimal] = None
+    type: Optional[FixedExpenseType] = None
     payment_method: Optional[PaymentMethod] = None
     frequency: Optional[Frequency] = None
     billing_day: Optional[int] = None
@@ -125,6 +129,7 @@ class CardPatch(BaseModel):
 class TransactionCreate(BaseModel):
     name: Optional[str] = None
     amount: Decimal
+    type: TransactionType = TransactionType.expense
     category_id: int
     payment_method: PaymentMethod
     card_id: Optional[int] = None
@@ -136,6 +141,7 @@ class TransactionResponse(BaseModel):
     id: int
     name: Optional[str]
     amount: Decimal
+    type: TransactionType
     category_id: int
     payment_method: PaymentMethod
     card_id: Optional[int]
@@ -153,6 +159,7 @@ class TransactionResponse(BaseModel):
 class TransactionPatch(BaseModel):
     name: Optional[str] = None
     amount: Optional[Decimal] = None
+    type: Optional[TransactionType] = None
     category_id: Optional[int] = None
     transaction_date: Optional[date] = None
     memo: Optional[str] = None

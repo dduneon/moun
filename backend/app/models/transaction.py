@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -18,6 +19,12 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+class TransactionType(str, enum.Enum):
+    income = "income"
+    expense = "expense"
+    saving = "saving"  # 저축/이체 — 지출 통계에서 제외되지만 가용 예산에서는 차감됨
+
+
 class Transaction(Base):
     __tablename__ = "transaction"
     __table_args__ = (
@@ -27,6 +34,9 @@ class Transaction(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2))
+    type: Mapped[TransactionType] = mapped_column(
+        Enum(TransactionType), default=TransactionType.expense, server_default=TransactionType.expense.value
+    )
     category_id: Mapped[int] = mapped_column(ForeignKey("category.id"))
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
     card_id: Mapped[int | None] = mapped_column(ForeignKey("card.id"))

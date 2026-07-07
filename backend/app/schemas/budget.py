@@ -22,6 +22,11 @@ class BillingSummary(BaseModel):
     by_category: list[CategoryAmount]
 
 
+class SavingSummary(BaseModel):
+    total_saving: Decimal
+    by_category: list[CategoryAmount]
+
+
 class CycleBoundsResponse(BaseModel):
     start_date: date
     end_date: date
@@ -37,6 +42,9 @@ class AvailableBudget(BaseModel):
     fixed_expense: Decimal           # 미청구 예정 고정지출
     confirmed_fixed_expense: Decimal  # 이미 실행된 고정지출 트랜잭션 합계
     billed_transactions: Decimal
+    confirmed_saving: Decimal        # 이미 실행된 저축/이체 트랜잭션 합계
+    pending_saving: Decimal          # 미청구 예정 고정저축
     available: Decimal
     spend_summary: SpendSummary
     billing_summary: BillingSummary
+    saving_summary: SavingSummary

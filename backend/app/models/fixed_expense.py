@@ -23,6 +23,12 @@ class PaymentMethod(str, enum.Enum):
     account = "account"
 
 
+class FixedExpenseType(str, enum.Enum):
+    """FixedExpense는 Income과 별도 모델이라 income은 포함하지 않는다."""
+    expense = "expense"
+    saving = "saving"  # 고정 저축/이체 (정기적금 등)
+
+
 class FixedExpense(Base):
     __tablename__ = "fixed_expense"
 
@@ -30,6 +36,9 @@ class FixedExpense(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2))
+    type: Mapped[FixedExpenseType] = mapped_column(
+        Enum(FixedExpenseType), default=FixedExpenseType.expense, server_default=FixedExpenseType.expense.value
+    )
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
     frequency: Mapped[Frequency] = mapped_column(Enum(Frequency), default=Frequency.monthly)
     billing_day: Mapped[int | None]        # monthly: 1~31 (31=말일), 나머지: None

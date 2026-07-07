@@ -61,6 +61,7 @@ def create_transaction(body: TransactionCreate, db: DbDep, user: UserDep):
         user_id=user.id,
         name=body.name,
         amount=body.amount,
+        type=body.type,
         category_id=body.category_id,
         payment_method=body.payment_method,
         card_id=body.card_id,

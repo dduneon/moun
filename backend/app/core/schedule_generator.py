@@ -11,12 +11,18 @@ from sqlalchemy.orm import Session
 
 from app.core.date_occurrence import occurrence_dates as _occurrence_dates
 from app.models.category import Category
-from app.models.fixed_expense import FixedExpense, PaymentMethod
+from app.models.fixed_expense import FixedExpense, FixedExpenseType, PaymentMethod
 from app.models.income import Income
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionType
 
 _SYSTEM_INCOME_CATEGORY = "수입"
 _SYSTEM_EXPENSE_CATEGORY = "고정지출"
+_SYSTEM_SAVING_CATEGORY = "고정저축"
+
+_SYSTEM_CATEGORY_BY_FIXED_EXPENSE_TYPE = {
+    FixedExpenseType.expense: _SYSTEM_EXPENSE_CATEGORY,
+    FixedExpenseType.saving: _SYSTEM_SAVING_CATEGORY,
+}
 
 
 @dataclass
@@ -160,6 +166,7 @@ def materialize_scheduled_items(
             db.add(Transaction(
                 user_id=user_id,
                 amount=income.expected_amount or Decimal(0),
+                type=TransactionType.income,
                 category_id=category_id,
                 payment_method=PaymentMethod.account,
                 card_id=None,
@@ -194,7 +201,7 @@ def materialize_scheduled_items(
 
             if category_id is None:
                 category_id = expense.category_id or _get_or_create_system_category(
-                    db, user_id, _SYSTEM_EXPENSE_CATEGORY
+                    db, user_id, _SYSTEM_CATEGORY_BY_FIXED_EXPENSE_TYPE[expense.type]
                 )
 
             billing_date = occ
@@ -208,6 +215,7 @@ def materialize_scheduled_items(
             db.add(Transaction(
                 user_id=user_id,
                 amount=-abs(expense.amount),
+                type=TransactionType(expense.type.value),
                 category_id=category_id,
                 payment_method=expense.payment_method,
                 card_id=expense.card_id,

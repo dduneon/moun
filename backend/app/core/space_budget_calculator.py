@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.space_schedule_generator import materialize_space_scheduled_items
 from app.models.space_finance import SpaceCategory, SpaceTransaction
-from app.schemas.budget import AvailableBudget, BillingSummary, CategoryAmount, SpendSummary
+from app.schemas.budget import AvailableBudget, BillingSummary, CategoryAmount, SavingSummary, SpendSummary
 
 
 def _category_breakdown(rows: list[tuple]) -> list[CategoryAmount]:
@@ -101,7 +101,10 @@ def get_space_available_budget(db: Session, space_id: int, start: date, end: dat
         fixed_expense=pending_fixed_expense,
         confirmed_fixed_expense=confirmed_fixed_expense,
         billed_transactions=spend_summary.total_spend,
+        confirmed_saving=Decimal(0),
+        pending_saving=Decimal(0),
         available=available,
         spend_summary=spend_summary,
         billing_summary=get_space_billing_summary(db, space_id, start, end),
+        saving_summary=SavingSummary(total_saving=Decimal(0), by_category=[]),
     )

@@ -122,6 +122,7 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
 
     base_name = current.name
     base_amount = current.amount
+    base_type = current.type
     base_payment_method = current.payment_method
     base_frequency = current.frequency
     base_billing_day = current.billing_day
@@ -135,6 +136,7 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
         user_id=user.id,
         name=fields.get("name", base_name),
         amount=fields.get("amount", base_amount),
+        type=fields.get("type", base_type),
         payment_method=fields.get("payment_method", base_payment_method),
         frequency=fields.get("frequency", base_frequency),
         billing_day=fields.get("billing_day", base_billing_day),
