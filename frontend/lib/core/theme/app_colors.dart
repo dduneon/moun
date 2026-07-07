@@ -17,6 +17,7 @@ abstract final class AppColors {
   static const income = Color(0xFF34C77B);
   static const expense = Color(0xFFFF6B6B);
   static const expensePending = Color(0xFFB39DFF);
+  static const saving = Color(0xFF3AB0D9);
 
   // Text
   static const textPrimary = Color(0xFF1C1C1E);

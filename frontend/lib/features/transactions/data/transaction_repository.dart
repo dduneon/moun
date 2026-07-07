@@ -21,6 +21,7 @@ class TransactionRepository {
 
   Future<TransactionModel> create({
     required int amount,
+    required TransactionType type,
     required int categoryId,
     required String paymentMethod,
     required DateTime transactionDate,
@@ -31,6 +32,7 @@ class TransactionRepository {
       '/transactions',
       data: {
         'amount': amount,
+        'type': type.apiValue,
         'category_id': categoryId,
         'payment_method': paymentMethod,
         'transaction_date':
@@ -45,6 +47,7 @@ class TransactionRepository {
   Future<TransactionModel> update(
     int id, {
     int? amount,
+    TransactionType? type,
     int? categoryId,
     DateTime? transactionDate,
     String? name,
@@ -52,6 +55,7 @@ class TransactionRepository {
   }) async {
     final data = <String, dynamic>{
       if (amount != null) 'amount': amount,
+      if (type != null) 'type': type.apiValue,
       if (categoryId != null) 'category_id': categoryId,
       if (transactionDate != null)
         'transaction_date':

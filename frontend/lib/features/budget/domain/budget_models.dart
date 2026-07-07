@@ -75,6 +75,24 @@ class BillingSummary {
 }
 
 @immutable
+class SavingSummary {
+  const SavingSummary({
+    required this.totalSaving,
+    required this.byCategory,
+  });
+
+  final double totalSaving;
+  final List<CategoryAmount> byCategory;
+
+  factory SavingSummary.fromJson(Map<String, dynamic> json) => SavingSummary(
+        totalSaving: double.parse(json['total_saving'].toString()),
+        byCategory: (json['by_category'] as List)
+            .map((e) => CategoryAmount.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+@immutable
 class AvailableBudget {
   const AvailableBudget({
     required this.startDate,
@@ -85,9 +103,12 @@ class AvailableBudget {
     required this.fixedExpense,
     required this.confirmedFixedExpense,
     required this.billedTransactions,
+    required this.confirmedSaving,
+    required this.pendingSaving,
     required this.available,
     required this.spendSummary,
     required this.billingSummary,
+    required this.savingSummary,
   });
 
   final DateTime startDate;
@@ -98,14 +119,22 @@ class AvailableBudget {
   final double fixedExpense;           // 미청구 예정 고정지출
   final double confirmedFixedExpense;  // 이미 실행된 고정지출
   final double billedTransactions;
+  final double confirmedSaving;        // 이미 실행된 저축/이체
+  final double pendingSaving;           // 미청구 예정 고정저축
   final double available;
   final SpendSummary spendSummary;
   final BillingSummary billingSummary;
+  final SavingSummary savingSummary;
 
   double get totalSpent => spendSummary.totalSpend.abs();
   double get totalFixedExpense => confirmedFixedExpense.abs() + fixedExpense;
   double get variableExpense => (totalSpent - confirmedFixedExpense.abs()).clamp(0, double.infinity);
+  double get totalSaving => confirmedSaving.abs() + pendingSaving;
   bool get hasPendingIncome => confirmedIncome < expectedIncome;
+
+  /// 확정된 지출 + 아직 청구되지 않은 예정 고정지출까지 합산한 총 지출.
+  double get totalSpentWithPending => totalSpent + fixedExpense;
+  bool get hasPendingFixedExpense => fixedExpense > 0;
 
   factory AvailableBudget.fromJson(Map<String, dynamic> json) => AvailableBudget(
         startDate: DateTime.parse(json['start_date'] as String),
@@ -116,10 +145,14 @@ class AvailableBudget {
         fixedExpense: double.parse(json['fixed_expense'].toString()),
         confirmedFixedExpense: double.parse(json['confirmed_fixed_expense'].toString()),
         billedTransactions: double.parse(json['billed_transactions'].toString()),
+        confirmedSaving: double.parse(json['confirmed_saving'].toString()),
+        pendingSaving: double.parse(json['pending_saving'].toString()),
         available: double.parse(json['available'].toString()),
         spendSummary: SpendSummary.fromJson(
             json['spend_summary'] as Map<String, dynamic>),
         billingSummary: BillingSummary.fromJson(
             json['billing_summary'] as Map<String, dynamic>),
+        savingSummary: SavingSummary.fromJson(
+            json['saving_summary'] as Map<String, dynamic>),
       );
 }

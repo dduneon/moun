@@ -39,6 +39,7 @@ final transactionItemsProvider =
       id: t.id,
       name: t.name ?? cat.label,
       amount: t.amount.round(),
+      type: t.type,
       date: t.transactionDate,
       category: cat,
       memo: t.memo,

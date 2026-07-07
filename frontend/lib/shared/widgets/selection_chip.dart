@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../features/transactions/domain/transaction_models.dart' show TransactionType;
 
 // 단일/다중 선택 칩 그룹
 class SelectionChipGroup<T> extends StatelessWidget {
@@ -185,6 +186,104 @@ class TransactionTypeToggle extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// 수입/지출/저축 3분할 타입 선택기 — 슬라이딩 인디케이터
+class TransactionTypeSelector extends StatelessWidget {
+  const TransactionTypeSelector({
+    super.key,
+    required this.type,
+    required this.onChanged,
+    this.allowSaving = true,
+  });
+
+  final TransactionType type;
+  final ValueChanged<TransactionType> onChanged;
+  final bool allowSaving;
+
+  static const _allOptions = [
+    (TransactionType.expense, '지출', AppColors.expense),
+    (TransactionType.income, '수입', AppColors.income),
+    (TransactionType.saving, '저축', AppColors.saving),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    const pad = 3.0;
+    const h = 44.0;
+    final options = allowSaving
+        ? _allOptions
+        : _allOptions.where((o) => o.$1 != TransactionType.saving).toList();
+    final selectedIndex = options.indexWhere((o) => o.$1 == type);
+    final activeColor = options[selectedIndex].$3;
+
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final w = constraints.maxWidth;
+        final segW = w / options.length;
+        final thumbW = segW - pad * 2;
+
+        return Container(
+          height: h,
+          decoration: BoxDecoration(
+            color: const Color(0x0A000000),
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                left: segW * selectedIndex + pad,
+                top: pad,
+                width: thumbW,
+                height: h - pad * 2,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.button - 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.18),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  for (final (value, label, color) in options)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => onChanged(value),
+                        behavior: HitTestBehavior.opaque,
+                        child: SizedBox(
+                          height: h,
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              style: tt.labelLarge!.copyWith(
+                                color: type == value ? color : AppColors.textSecondary,
+                                fontWeight: type == value ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                              child: Text(label),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],

@@ -3,32 +3,36 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_radius.dart';
+import '../../features/transactions/domain/transaction_models.dart' show TransactionType;
 import 'app_bottom_sheet.dart';
 import 'category_selector.dart';
 
 // UI 전용 거래 모델 (API 응답을 변환해서 사용)
 class TransactionItem {
-  const TransactionItem({
+  TransactionItem({
     required this.id,
     required this.name,
-    required this.amount,      // 양수=수입, 음수=지출
+    required this.amount,      // 양수=수입, 음수=지출/저축
+    TransactionType? type,
     required this.date,
     required this.category,
     this.isPending = false,    // 청구 예정
     this.isFixed = false,      // 고정 지출/수입 여부
     this.memo,
-  });
+  }) : type = type ?? (amount > 0 ? TransactionType.income : TransactionType.expense);
 
   final int id;
   final String name;
   final int amount;
+  final TransactionType type;
   final DateTime date;
   final CategoryItem category;
   final bool isPending;
   final bool isFixed;
   final String? memo;
 
-  bool get isIncome => amount > 0;
+  bool get isIncome => type == TransactionType.income;
+  bool get isSaving => type == TransactionType.saving;
 }
 
 // 날짜별 거래 목록 바텀시트
@@ -69,8 +73,11 @@ class DayTransactionSheet extends StatelessWidget {
 
   int get _totalIncome =>
       transactions.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
-  int get _totalExpense =>
-      transactions.where((t) => !t.isIncome).fold(0, (s, t) => s + t.amount.abs());
+  int get _totalExpense => transactions
+      .where((t) => !t.isIncome && !t.isSaving)
+      .fold(0, (s, t) => s + t.amount.abs());
+  int get _totalSaving =>
+      transactions.where((t) => t.isSaving).fold(0, (s, t) => s + t.amount.abs());
 
   @override
   Widget build(BuildContext context) {
@@ -100,11 +107,21 @@ class DayTransactionSheet extends StatelessWidget {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                     ],
-                    if (_totalExpense > 0)
+                    if (_totalExpense > 0) ...[
                       Text(
                         '-${_amtFmt.format(_totalExpense)}원',
                         style: tt.labelMedium?.copyWith(
                           color: AppColors.expense,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                    ],
+                    if (_totalSaving > 0)
+                      Text(
+                        '저축 ${_amtFmt.format(_totalSaving)}원',
+                        style: tt.labelMedium?.copyWith(
+                          color: AppColors.saving,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -251,7 +268,9 @@ class _TransactionRow extends StatelessWidget {
                     ? AppColors.expensePending
                     : item.isIncome
                         ? AppColors.income
-                        : AppColors.expense,
+                        : item.isSaving
+                            ? AppColors.saving
+                            : AppColors.expense,
                 fontWeight: FontWeight.w600,
               ),
             ),

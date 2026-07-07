@@ -39,6 +39,13 @@ const defaultIncomeCategories = [
   CategoryItem(id: 104, label: '기타', icon: Icons.more_horiz_rounded, color: AppColors.textSecondary),
 ];
 
+const defaultSavingCategories = [
+  CategoryItem(id: 105, label: '저축', icon: Icons.savings_rounded, color: AppColors.saving),
+  CategoryItem(id: 106, label: '적금', icon: Icons.calendar_month_rounded, color: AppColors.saving),
+  CategoryItem(id: 107, label: '예금', icon: Icons.account_balance_wallet_rounded, color: AppColors.saving),
+  CategoryItem(id: 108, label: '주식', icon: Icons.show_chart_rounded, color: AppColors.saving),
+];
+
 // 인라인 그리드 선택기 (폼 안에 바로 삽입하는 용도)
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({
