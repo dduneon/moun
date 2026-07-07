@@ -9,6 +9,7 @@ import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/selection_chip.dart';
 import '../../../../shared/widgets/transaction_list.dart' show TransactionItem;
+import '../../domain/transaction_models.dart' show TransactionType;
 import '../../../budget/domain/budget_models.dart';
 import '../../../budget/presentation/providers/budget_provider.dart';
 import '../../../spaces/domain/space_model.dart';
@@ -98,7 +99,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               child: Row(
                 children: [
                   SelectionChipGroup<String>(
-                    items: const ['전체', '수입', '지출'],
+                    items: const ['전체', '수입', '지출', '저축'],
                     labelOf: (s) => s,
                     selected: _filter,
                     onSelected: (v) => setState(() => _filter = v),
@@ -197,8 +198,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     return result.map((key, items) {
       final filtered = items.where((t) {
         if (!_filter.contains('전체')) {
-          if (_filter.contains('수입') && !t.isIncome) return false;
-          if (_filter.contains('지출') && t.isIncome) return false;
+          if (_filter.contains('수입') && t.type != TransactionType.income) return false;
+          if (_filter.contains('지출') && t.type != TransactionType.expense) return false;
+          if (_filter.contains('저축') && t.type != TransactionType.saving) return false;
         }
         if (_excludeFixed && t.isFixed && !t.isIncome) return false;
         return true;
@@ -229,7 +231,10 @@ class _SummaryCard extends StatelessWidget {
     final totalIncome =
         allItems.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
     final totalExpense = allItems
-        .where((t) => !t.isIncome)
+        .where((t) => !t.isIncome && !t.isSaving)
+        .fold(0, (s, t) => s + t.amount.abs());
+    final totalSaving = allItems
+        .where((t) => t.isSaving)
         .fold(0, (s, t) => s + t.amount.abs());
 
     return GlassCard(
@@ -268,46 +273,45 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          // 수입 / 지출 요약
-          Row(
-            children: [
-              Expanded(
-                child: _SummaryTile(
-                  label: '수입',
-                  amount: totalIncome,
-                  color: AppColors.income,
-                  sign: '+',
-                ),
+          // 수입 / 지출 / (저축) / 합계 요약
+          Builder(builder: (context) {
+            final net = totalIncome - totalExpense - totalSaving;
+            final tiles = [
+              _SummaryTile(
+                label: '수입',
+                amount: totalIncome,
+                color: AppColors.income,
+                sign: '+',
               ),
-              Container(
-                  width: 1,
-                  height: 36,
-                  color: AppColors.divider),
-              Expanded(
-                child: _SummaryTile(
-                  label: '지출',
-                  amount: totalExpense,
-                  color: AppColors.expense,
-                  sign: '-',
-                ),
+              _SummaryTile(
+                label: '지출',
+                amount: totalExpense,
+                color: AppColors.expense,
+                sign: '-',
               ),
-              Container(
-                  width: 1,
-                  height: 36,
-                  color: AppColors.divider),
-              Expanded(
-                child: _SummaryTile(
-                  label: '합계',
-                  amount: totalIncome - totalExpense,
-                  color: totalIncome >= totalExpense
-                      ? AppColors.income
-                      : AppColors.expense,
-                  sign: totalIncome >= totalExpense ? '+' : '-',
-                  absolute: true,
-                ),
+              _SummaryTile(
+                label: '저축',
+                amount: totalSaving,
+                color: AppColors.saving,
+                sign: '-',
               ),
-            ],
-          ),
+              _SummaryTile(
+                label: '합계',
+                amount: net,
+                color: net >= 0 ? AppColors.income : AppColors.expense,
+                sign: net >= 0 ? '+' : '-',
+                absolute: true,
+              ),
+            ];
+            return Row(
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) Container(width: 1, height: 36, color: AppColors.divider),
+                  Expanded(child: tiles[i]),
+                ],
+              ],
+            );
+          }),
         ],
       ),
     );
@@ -508,15 +512,23 @@ class _TransactionRow extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: (item.isIncome ? AppColors.income : AppColors.expensePending)
+                          color: (item.isIncome
+                                  ? AppColors.income
+                                  : item.isSaving
+                                      ? AppColors.saving
+                                      : AppColors.expensePending)
                               .withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          item.isIncome ? '고정 수입' : '고정 지출',
+                          item.isIncome ? '고정 수입' : item.isSaving ? '고정 저축' : '고정 지출',
                           style: tt.labelSmall?.copyWith(
                             fontSize: 10,
-                            color: item.isIncome ? AppColors.income : AppColors.expensePending,
+                            color: item.isIncome
+                                ? AppColors.income
+                                : item.isSaving
+                                    ? AppColors.saving
+                                    : AppColors.expensePending,
                           ),
                         ),
                       ),
@@ -542,7 +554,11 @@ class _TransactionRow extends StatelessWidget {
                 ? '+${_amtFmt.format(item.amount)}원'
                 : '-${_amtFmt.format(item.amount.abs())}원',
             style: tt.bodyMedium?.copyWith(
-              color: item.isIncome ? AppColors.income : AppColors.expense,
+              color: item.isIncome
+                  ? AppColors.income
+                  : item.isSaving
+                      ? AppColors.saving
+                      : AppColors.expense,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -598,7 +614,11 @@ class _TransactionActionSheet extends StatelessWidget {
                 ? '+${amtFmt.format(item.amount)}원'
                 : '-${amtFmt.format(item.amount.abs())}원',
             style: tt.bodySmall?.copyWith(
-              color: item.isIncome ? AppColors.income : AppColors.expense,
+              color: item.isIncome
+                  ? AppColors.income
+                  : item.isSaving
+                      ? AppColors.saving
+                      : AppColors.expense,
             ),
           ),
         ),
