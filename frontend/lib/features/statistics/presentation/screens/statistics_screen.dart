@@ -149,7 +149,7 @@ class _CurrentCycleTab extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('카테고리별 지출', style: tt.titleLarge),
+                  Text('카테고리별 소비', style: tt.titleLarge),
                   const SizedBox(height: AppSpacing.lg),
                   budgetAsync.when(
                     data: (b) {
@@ -180,6 +180,35 @@ class _CurrentCycleTab extends ConsumerWidget {
                 ],
               ),
             ).animate(delay: 150.ms).fadeIn(duration: 400.ms),
+          ),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: GlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('저축률', style: tt.titleLarge),
+                  const SizedBox(height: AppSpacing.lg),
+                  budgetAsync.when(
+                    data: (b) => _SavingRateBar(
+                      saving: b.totalSaving,
+                      income: b.expectedIncome,
+                    ),
+                    loading: () => const SizedBox(height: 48),
+                    error: (_, __) => Center(
+                      child: Text('데이터 없음',
+                          style: tt.bodySmall
+                              ?.copyWith(color: AppColors.textSecondary)),
+                    ),
+                  ),
+                ],
+              ),
+            ).animate(delay: 180.ms).fadeIn(duration: 400.ms),
           ),
         ),
 
@@ -309,6 +338,7 @@ class _CycleCompareTab extends ConsumerWidget {
                             pendingIncome: (b.expectedIncome - b.confirmedIncome).clamp(0, double.infinity).round(),
                             expense: b.variableExpense.round(),
                             fixedExpense: b.totalFixedExpense.round(),
+                            saving: b.totalSaving.round(),
                           )).toList();
                       return MonthlyBarChart(data: barData);
                     },
@@ -388,6 +418,59 @@ class _CycleRow extends StatelessWidget {
     final prefix = amount < 0 ? '-' : '';
     if (abs >= 10000) return '$prefix${(abs / 10000).toStringAsFixed(0)}만원';
     return '$prefix${abs}원';
+  }
+}
+
+class _SavingRateBar extends StatelessWidget {
+  const _SavingRateBar({required this.saving, required this.income});
+  final double saving;
+  final double income;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final ratio = income > 0 ? (saving / income).clamp(0.0, 1.0) : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '${(ratio * 100).toStringAsFixed(0)}%',
+              style: tt.headlineSmall?.copyWith(
+                color: AppColors.income,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: AmountDisplay(
+                amount: saving.round(),
+                size: AmountSize.small,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: ratio),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (_, value, _) => LinearProgressIndicator(
+              value: value,
+              minHeight: 6,
+              backgroundColor: AppColors.divider.withValues(alpha: 4.0),
+              valueColor: const AlwaysStoppedAnimation(AppColors.income),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

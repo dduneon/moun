@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../budget/domain/budget_models.dart';
 import '../../../budget/presentation/providers/budget_provider.dart';
+import '../../../transactions/domain/transaction_models.dart';
 import '../../../transactions/presentation/providers/transaction_provider.dart';
 import '../../../../shared/widgets/charts/spending_line_chart.dart';
 
@@ -24,7 +25,7 @@ final dailySpendingPointsProvider = FutureProvider<List<SpendingPoint>>((ref) as
 
   final expenseByDay = <int, int>{};
   for (final t in txns) {
-    if (t.amount >= 0) continue;
+    if (t.type != TransactionType.expense) continue;
     final day = t.transactionDate.difference(cycle.startDate).inDays + 1;
     if (day < 1) continue;
     expenseByDay[day] = (expenseByDay[day] ?? 0) + t.amount.abs().round();

@@ -10,6 +10,7 @@ class MonthlyBarData {
     required this.expense,
     this.pendingIncome = 0,
     this.fixedExpense = 0,
+    this.saving = 0,
   });
 
   final String label;  // ex) '1월'
@@ -17,6 +18,7 @@ class MonthlyBarData {
   final int pendingIncome; // expectedIncome - confirmedIncome (아직 안 받은 고정수입)
   final int expense;
   final int fixedExpense;
+  final int saving;
 }
 
 class MonthlyBarChart extends StatelessWidget {
@@ -30,7 +32,7 @@ class MonthlyBarChart extends StatelessWidget {
   double get _maxY {
     final m = data.fold<int>(
       0,
-      (prev, e) => [prev, e.income + e.pendingIncome, e.expense + e.fixedExpense].reduce((a, b) => a > b ? a : b),
+      (prev, e) => [prev, e.income + e.pendingIncome, e.expense + e.fixedExpense + e.saving].reduce((a, b) => a > b ? a : b),
     );
     final raw = (m * 1.25).ceilToDouble();
     return raw > 0 ? raw : 10000;
@@ -99,7 +101,7 @@ class MonthlyBarChart extends StatelessWidget {
                       color: Colors.transparent,
                     ),
                     BarChartRodData(
-                      toY: (d.expense + d.fixedExpense).toDouble(),
+                      toY: (d.expense + d.fixedExpense + d.saving).toDouble(),
                       width: 10,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(4),
@@ -107,6 +109,11 @@ class MonthlyBarChart extends StatelessWidget {
                       rodStackItems: [
                         BarChartRodStackItem(0, d.expense.toDouble(), AppColors.expense),
                         BarChartRodStackItem(d.expense.toDouble(), (d.expense + d.fixedExpense).toDouble(), AppColors.expensePending),
+                        BarChartRodStackItem(
+                          (d.expense + d.fixedExpense).toDouble(),
+                          (d.expense + d.fixedExpense + d.saving).toDouble(),
+                          AppColors.saving,
+                        ),
                       ],
                       color: Colors.transparent,
                     ),
@@ -137,11 +144,11 @@ class MonthlyBarChart extends StatelessWidget {
                       );
                     }
                     return BarTooltipItem(
-                      '변동 ${_fmt(d.expense)}원  고정 ${_fmt(d.fixedExpense)}원\n',
+                      '변동 ${_fmt(d.expense)}원  고정 ${_fmt(d.fixedExpense)}원  저축 ${_fmt(d.saving)}원\n',
                       tt.labelSmall!.copyWith(color: Colors.white),
                       children: [
                         TextSpan(
-                          text: '합계 ${_fmt(d.expense + d.fixedExpense)}원',
+                          text: '합계 ${_fmt(d.expense + d.fixedExpense + d.saving)}원',
                           style: tt.labelMedium?.copyWith(
                             color: AppColors.expense,
                             fontWeight: FontWeight.w700,
@@ -166,6 +173,8 @@ class MonthlyBarChart extends StatelessWidget {
             _Legend('지출', AppColors.expense),
             const SizedBox(width: AppSpacing.md),
             _Legend('고정지출', AppColors.expensePending),
+            const SizedBox(width: AppSpacing.md),
+            _Legend('저축', AppColors.saving),
           ],
         ),
       ],
