@@ -5,6 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 초대 토큰을 보관한다. null이면 대기 중인 초대가 없다는 뜻.
 final pendingInviteTokenProvider = StateProvider<String?>((ref) => null);
 
+/// 홈 화면 위젯(moun://add-transaction) 탭으로 거래 추가 시트를 띄워야
+/// 하는지 여부. true가 되면 소비하는 쪽(main.dart)에서 시트를 띄운 뒤 다시
+/// false로 되돌린다.
+final pendingWidgetActionProvider = StateProvider<bool>((ref) => false);
+
 String? _extractInviteToken(Uri uri) {
   final segments = uri.pathSegments;
   final idx = segments.indexOf('invite');
@@ -32,6 +37,10 @@ class DeepLinkListener {
     final token = _extractInviteToken(uri);
     if (token != null) {
       _ref.read(pendingInviteTokenProvider.notifier).state = token;
+      return;
+    }
+    if (uri.host == 'add-transaction') {
+      _ref.read(pendingWidgetActionProvider.notifier).state = true;
     }
   }
 }

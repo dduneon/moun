@@ -18,13 +18,21 @@ import '../../features/shell/main_shell.dart';
 import '../../features/spaces/presentation/screens/space_list_screen.dart';
 import '../../features/spaces/presentation/screens/invite_preview_screen.dart';
 import '../deeplink/deep_link_provider.dart';
+import '../widget/home_widget_sync_provider.dart';
+
+/// 앱 최상위 네비게이터 키. main.dart에서 위젯 탭(딥링크)으로 거래 추가
+/// 시트를 띄울 때 BuildContext를 얻기 위해 사용한다.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   Future.microtask(() => ref.read(authProvider.notifier).restoreSession());
   // 딥링크 리스너 구독 시작 (콜드/웜 스타트 양쪽 처리)
   ref.read(deepLinkListenerProvider);
+  // 홈 화면 위젯에 예산 데이터 동기화 시작
+  ref.read(homeWidgetSyncServiceProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/home',
     refreshListenable: _RouterListenable(ref),
     redirect: (context, state) {
