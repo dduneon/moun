@@ -104,7 +104,11 @@ def patch_transaction(txn_id: int, body: TransactionPatch, db: DbDep, user: User
     if "transaction_date" in fields:
         obj.transaction_date = fields.pop("transaction_date")
         card = db.scalar(select(Card).where(Card.id == obj.card_id)) if obj.card_id else None
-        obj.billing_date = calculate_billing_date(obj.transaction_date, obj.payment_method, card)
+        if obj.payment_method == PaymentMethod.card and card is None:
+            # 카드 결제인데 카드 정보가 유실된(손상된) 항목 → 거래일을 청구일로 사용
+            obj.billing_date = obj.transaction_date
+        else:
+            obj.billing_date = calculate_billing_date(obj.transaction_date, obj.payment_method, card)
 
     for field, value in fields.items():
         setattr(obj, field, value)

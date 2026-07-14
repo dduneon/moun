@@ -127,6 +127,8 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
     base_frequency = current.frequency
     base_billing_day = current.billing_day
     base_day_of_week = current.day_of_week
+    base_card_id = current.card_id
+    base_category_id = current.category_id
 
     for row in later_rows:
         db.delete(row)
@@ -141,6 +143,8 @@ def patch_fixed_expense(obj_id: int, body: FixedExpensePatch, db: DbDep, user: U
         frequency=fields.get("frequency", base_frequency),
         billing_day=fields.get("billing_day", base_billing_day),
         day_of_week=fields.get("day_of_week", base_day_of_week),
+        card_id=fields.get("card_id", base_card_id),
+        category_id=fields.get("category_id", base_category_id),
         group_id=group_id,
         effective_from=effective_from,
         is_active=True,
