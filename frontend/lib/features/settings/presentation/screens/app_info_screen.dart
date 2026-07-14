@@ -10,8 +10,8 @@ import '../../../../shared/widgets/gradient_background.dart';
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
-  static const String version = '1.2.0';
-  static const String _buildNumber = '3';
+  static const String version = '1.3.0';
+  static const String _buildNumber = '6';
 
   @override
   Widget build(BuildContext context) {
