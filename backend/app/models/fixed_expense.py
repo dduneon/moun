@@ -21,6 +21,7 @@ class PaymentMethod(str, enum.Enum):
     card = "card"
     cash = "cash"
     account = "account"
+    voucher = "voucher"  # 지역/온누리 상품권 등 선불 충전형 결제수단
 
 
 class FixedExpenseType(str, enum.Enum):

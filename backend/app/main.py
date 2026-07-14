@@ -14,6 +14,7 @@ from app.api import (
     space_transactions,
     spaces,
     transactions,
+    vouchers,
 )
 from app.core.config import settings
 
@@ -25,6 +26,7 @@ app.include_router(categories.router)
 app.include_router(incomes.router)
 app.include_router(fixed_expenses.router)
 app.include_router(cards.router)
+app.include_router(vouchers.router)
 app.include_router(transactions.router)
 app.include_router(spaces.router)
 app.include_router(space_categories.router)

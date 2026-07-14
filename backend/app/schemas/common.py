@@ -124,6 +124,39 @@ class CardPatch(BaseModel):
     is_active: Optional[bool] = None
 
 
+# ── Voucher ───────────────────────────────────────────────────────────────────
+
+class VoucherCreate(BaseModel):
+    name: str
+
+
+class VoucherResponse(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    balance: Decimal  # 연결 트랜잭션의 voucher_delta 합으로 파생 계산
+    model_config = {"from_attributes": True}
+
+
+class VoucherPatch(BaseModel):
+    name: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class VoucherChargeRequest(BaseModel):
+    """상품권 충전. 실제 지불액(paid_amount)만큼 가용 예산에서 차감되고,
+    액면가(face_amount)만큼 상품권 잔액이 늘어난다. 할인 구매 시 둘이 다르다
+    (예: 온누리 10% → paid 90,000 / face 100,000)."""
+    paid_amount: Decimal            # 실제 계좌/카드에서 나간 금액 (양수)
+    face_amount: Optional[Decimal] = None  # 충전된 액면가 (미지정 시 paid_amount와 동일 = 할인 없음)
+    category_id: int
+    transaction_date: date
+    payment_method: PaymentMethod = PaymentMethod.account  # voucher 자기 자신은 불가
+    card_id: Optional[int] = None
+    name: Optional[str] = None
+    memo: Optional[str] = None
+
+
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):
@@ -133,6 +166,7 @@ class TransactionCreate(BaseModel):
     category_id: int
     payment_method: PaymentMethod
     card_id: Optional[int] = None
+    voucher_id: Optional[int] = None  # payment_method == voucher 일 때 필수
     transaction_date: date
     memo: Optional[str] = None
 
@@ -145,6 +179,7 @@ class TransactionResponse(BaseModel):
     category_id: int
     payment_method: PaymentMethod
     card_id: Optional[int]
+    voucher_id: Optional[int] = None
     transaction_date: date
     billing_date: date
     memo: Optional[str]

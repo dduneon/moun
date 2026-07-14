@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.fixed_expense import FixedExpense
     from app.models.income import Income
     from app.models.user import User
+    from app.models.voucher import Voucher
 
 
 class TransactionType(str, enum.Enum):
@@ -40,6 +41,9 @@ class Transaction(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("category.id"))
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod))
     card_id: Mapped[int | None] = mapped_column(ForeignKey("card.id"))
+    voucher_id: Mapped[int | None] = mapped_column(ForeignKey("voucher.id"), nullable=True)
+    # 이 트랜잭션이 상품권 잔액에 준 변화. 충전=+액면가, 사용=음수 지출액. 잔액 파생 계산의 근거.
+    voucher_delta: Mapped[Decimal | None] = mapped_column(Numeric(15, 2), nullable=True)
     transaction_date: Mapped[date]
     billing_date: Mapped[date]
     name: Mapped[str | None] = mapped_column(String(200))
@@ -54,5 +58,6 @@ class Transaction(Base):
     user: Mapped[User] = relationship(back_populates="transactions")
     category: Mapped[Category] = relationship(back_populates="transactions")
     card: Mapped[Card | None] = relationship(back_populates="transactions")
+    voucher: Mapped[Voucher | None] = relationship(back_populates="transactions")
     source_income: Mapped[Income | None] = relationship(foreign_keys=[source_income_id])
     source_fixed_expense: Mapped[FixedExpense | None] = relationship(foreign_keys=[source_fixed_expense_id])

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.schedule_generator import PendingExpense, PendingIncome, materialize_scheduled_items
 from app.models.category import Category
-from app.models.fixed_expense import FixedExpenseType
+from app.models.fixed_expense import FixedExpenseType, PaymentMethod
 from app.models.transaction import Transaction, TransactionType
 from app.schemas.budget import AvailableBudget, BillingSummary, CategoryAmount, SavingSummary, SpendSummary
 
@@ -134,12 +134,28 @@ def get_available_budget(db: Session, user_id: int, start: date, end: date, labe
     saving_summary = get_saving_summary(db, user_id, start, end)
     confirmed_saving = saving_summary.total_saving
 
+    # 가용 예산에 반영할 지출은 상품권(voucher) 사용분을 제외한다.
+    # 상품권 사용은 이미 "충전" 시점에 saving으로 예산에서 차감되었으므로, 사용 시점에
+    # 다시 차감하면 이중 계산이 된다. 단, spend_summary(소비 통계)에는 카테고리별로 포함된다.
+    budget_spend_row = db.scalar(
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.transaction_date >= start,
+            Transaction.transaction_date <= end,
+            Transaction.type == TransactionType.expense,
+            Transaction.amount < 0,
+            Transaction.payment_method != PaymentMethod.voucher,
+        )
+    )
+    budget_spend = Decimal(str(budget_spend_row))
+
     # 저축도 실제로 계좌에서 빠져나간 돈이므로 가용 예산에서는 차감하되,
     # "소비" 통계(spend_summary)에는 포함하지 않는다. 예정된(아직 실행 안 된) 고정
     # 저축도 같은 이유로 미리 차감한다.
     available = (
         expected_income - pending_fixed_expense - pending_saving
-        + spend_summary.total_spend + confirmed_saving
+        + budget_spend + confirmed_saving
     )
 
     return AvailableBudget(

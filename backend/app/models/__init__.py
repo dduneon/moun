@@ -12,6 +12,7 @@ from app.models.space_finance import (
 )
 from app.models.transaction import Transaction
 from app.models.user import User
+from app.models.voucher import Voucher
 
 __all__ = [
     "Card",
@@ -28,5 +29,6 @@ __all__ = [
     "SpacePaymentMethod",
     "Transaction",
     "User",
+    "Voucher",
     "PaymentMethod",
 ]

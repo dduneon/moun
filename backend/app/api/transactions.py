@@ -10,6 +10,7 @@ from app.core.schedule_generator import materialize_scheduled_items
 from app.models.card import Card
 from app.models.fixed_expense import PaymentMethod
 from app.models.transaction import Transaction
+from app.models.voucher import Voucher
 from app.schemas.common import TransactionCreate, TransactionPatch, TransactionResponse
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -55,6 +56,19 @@ def create_transaction(body: TransactionCreate, db: DbDep, user: UserDep):
         if not card:
             raise HTTPException(status_code=404, detail="Not found")
 
+    # 상품권 사용(결제): 잔액에서 차감하고 voucher_delta에 기록.
+    # amount는 지출이므로 음수이며, 그대로가 잔액 변화량(delta)이 된다.
+    voucher_delta = None
+    if body.payment_method == PaymentMethod.voucher:
+        if body.voucher_id is None:
+            raise HTTPException(status_code=422, detail="상품권 결제 시 voucher_id가 필요합니다")
+        voucher = db.scalar(
+            select(Voucher).where(Voucher.id == body.voucher_id, Voucher.user_id == user.id)
+        )
+        if not voucher:
+            raise HTTPException(status_code=404, detail="Not found")
+        voucher_delta = body.amount
+
     billing_date = calculate_billing_date(body.transaction_date, body.payment_method, card)
 
     obj = Transaction(
@@ -65,6 +79,8 @@ def create_transaction(body: TransactionCreate, db: DbDep, user: UserDep):
         category_id=body.category_id,
         payment_method=body.payment_method,
         card_id=body.card_id,
+        voucher_id=body.voucher_id if body.payment_method == PaymentMethod.voucher else None,
+        voucher_delta=voucher_delta,
         transaction_date=body.transaction_date,
         billing_date=billing_date,
         memo=body.memo,
