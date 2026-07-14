@@ -133,6 +133,46 @@ def test_voucher_charge_and_use_flow(client):
     assert Decimal(bal) == Decimal(70000)
 
 
+def test_voucher_overdraw_splits_to_cash(client):
+    """잔액을 넘겨 결제하면 초과분은 현금으로 분할되고, 잔액은 0 밑으로 안 내려간다."""
+    h = _register(client, "vsplit@test.com")
+    cat_id = client.post("/categories", json={"name": "식비"}, headers=h).json()["id"]
+    v = client.post("/vouchers", json={"name": "온누리"}, headers=h).json()
+    client.post(f"/vouchers/{v['id']}/charge",
+                json={"paid_amount": 20000, "transaction_date": "2026-06-05"}, headers=h)
+
+    # 잔액 20,000인데 30,000 결제 → 20,000 상품권 + 10,000 현금
+    r = client.post("/transactions",
+                    json={"amount": -30000, "category_id": cat_id, "payment_method": "voucher",
+                          "voucher_id": v["id"], "transaction_date": "2026-06-10", "name": "장보기"},
+                    headers=h)
+    assert r.status_code == 201
+
+    # 잔액은 정확히 0 (음수 아님)
+    assert Decimal(client.get(f"/vouchers/{v['id']}", headers=h).json()["balance"]) == Decimal(0)
+
+    # 거래는 상품권 -20,000 + 현금 -10,000 두 건으로 분리됨
+    txns = client.get("/transactions", params={"start_date": "2026-06-01", "end_date": "2026-06-30"},
+                      headers=h).json()
+    spend = [t for t in txns if t["name"] == "장보기"]
+    by_method = {t["payment_method"]: Decimal(t["amount"]) for t in spend}
+    assert by_method == {"voucher": Decimal(-20000), "cash": Decimal(-10000)}
+
+
+def test_voucher_empty_balance_all_cash(client):
+    """잔액 0인 상품권으로 결제하면 전액 현금으로 처리, 잔액은 그대로 0."""
+    h = _register(client, "vempty@test.com")
+    cat_id = client.post("/categories", json={"name": "식비"}, headers=h).json()["id"]
+    v = client.post("/vouchers", json={"name": "빈상품권"}, headers=h).json()
+
+    r = client.post("/transactions",
+                    json={"amount": -5000, "category_id": cat_id, "payment_method": "voucher",
+                          "voucher_id": v["id"], "transaction_date": "2026-06-10", "name": "커피"},
+                    headers=h)
+    assert r.status_code == 201
+    assert Decimal(client.get(f"/vouchers/{v['id']}", headers=h).json()["balance"]) == Decimal(0)
+
+
 def test_voucher_payment_requires_voucher_id(client):
     h = _register(client, "v2@test.com")
     cat_id = client.post("/categories", json={"name": "식비"}, headers=h).json()["id"]

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -24,6 +25,7 @@ import '../../../spaces/domain/space_model.dart';
 import '../../../spaces/presentation/providers/space_provider.dart';
 import '../../../spaces/presentation/widgets/space_home_body.dart';
 import '../../../spaces/presentation/widgets/space_switcher.dart';
+import '../../../vouchers/presentation/providers/voucher_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -248,6 +250,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
+
+          // ── 상품권 잔액 ────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: const _VoucherBalanceStrip(),
+            ),
+          ),
 
           // ── 달력 ──────────────────────────────────────────
           SliverPadding(
@@ -1019,6 +1029,72 @@ class _SheetAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── 상품권 잔액 스트립 ─────────────────────────────────────────
+
+class _VoucherBalanceStrip extends ConsumerWidget {
+  const _VoucherBalanceStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tt = Theme.of(context).textTheme;
+    final fmt = NumberFormat('#,###');
+    const accent = Color(0xFFB39DFF);
+    final vouchersAsync = ref.watch(activeVouchersProvider);
+
+    return vouchersAsync.maybeWhen(
+      data: (vouchers) {
+        final withBalance = vouchers.where((v) => v.balance > 0).toList();
+        if (withBalance.isEmpty) return const SizedBox.shrink();
+
+        return GlassCard(
+          child: InkWell(
+            onTap: () => context.push('/settings/vouchers'),
+            borderRadius: AppRadius.cardBorderRadius,
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.card_giftcard_rounded,
+                      size: 18, color: accent),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('상품권 잔액',
+                          style: tt.labelSmall
+                              ?.copyWith(color: AppColors.textSecondary)),
+                      const SizedBox(height: 2),
+                      Text(
+                        withBalance
+                            .map((v) => '${v.name} ${fmt.format(v.balance.round())}원')
+                            .join('  ·  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600, color: accent),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: AppColors.textSecondary),
+              ],
+            ),
+          ),
+        ).animate(delay: 250.ms).fadeIn();
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }

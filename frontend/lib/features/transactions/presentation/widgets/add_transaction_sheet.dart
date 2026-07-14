@@ -744,6 +744,12 @@ class _VoucherPaymentSelector extends ConsumerWidget {
                       )),
                 ],
               ),
+              if (selectedId != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text('잔액이 부족하면 초과분은 현금으로 결제돼요.',
+                    style: tt.labelSmall
+                        ?.copyWith(color: AppColors.textSecondary)),
+              ],
             ],
           ),
         );
