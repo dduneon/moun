@@ -62,8 +62,15 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final user = await _repo.getMe();
       state = AuthStateAuthenticated(user);
+    } on DioException catch (e) {
+      // 서버가 명시적으로 401을 준 경우에만 세션 만료로 간주하고 토큰을 지운다.
+      // 5xx(예: DB 커넥션 일시 오류)나 네트워크 오류는 토큰을 유지해
+      // 임의 로그아웃을 방지하고 사용자가 재시도할 수 있게 한다.
+      if (e.response?.statusCode == 401) {
+        await _storage.clearTokens();
+      }
+      state = const AuthStateUnauthenticated();
     } catch (_) {
-      await _storage.clearTokens();
       state = const AuthStateUnauthenticated();
     }
   }
