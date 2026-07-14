@@ -199,7 +199,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.md)),
 
           // ── 수입 / 지출 / 저축 카드 ────────────────────────────
           SliverToBoxAdapter(
@@ -1050,7 +1050,9 @@ class _VoucherBalanceStrip extends ConsumerWidget {
         final withBalance = vouchers.where((v) => v.balance > 0).toList();
         if (withBalance.isEmpty) return const SizedBox.shrink();
 
-        return GlassCard(
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: GlassCard(
           child: InkWell(
             onTap: () => context.push('/settings/vouchers'),
             borderRadius: AppRadius.cardBorderRadius,
@@ -1092,7 +1094,8 @@ class _VoucherBalanceStrip extends ConsumerWidget {
               ],
             ),
           ),
-        ).animate(delay: 250.ms).fadeIn();
+          ).animate(delay: 250.ms).fadeIn(),
+        );
       },
       orElse: () => const SizedBox.shrink(),
     );
