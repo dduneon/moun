@@ -121,6 +121,13 @@ class SettingsScreen extends ConsumerWidget {
                       label: '고정 지출·저축',
                       onTap: () => context.push('/settings/fixed-expense'),
                     ),
+                    const Divider(height: 1, indent: 52),
+                    _SettingsTile(
+                      icon: Icons.card_giftcard_rounded,
+                      iconColor: const Color(0xFFB39DFF),
+                      label: '상품권',
+                      onTap: () => context.push('/settings/vouchers'),
+                    ),
                   ],
                 ),
               ).animate(delay: 200.ms).fadeIn(),

@@ -25,6 +25,7 @@ class TransactionRepository {
     required int categoryId,
     required String paymentMethod,
     required DateTime transactionDate,
+    int? voucherId,
     String? name,
     String? memo,
   }) async {
@@ -35,6 +36,7 @@ class TransactionRepository {
         'type': type.apiValue,
         'category_id': categoryId,
         'payment_method': paymentMethod,
+        if (voucherId != null) 'voucher_id': voucherId,
         'transaction_date':
             '${transactionDate.year.toString().padLeft(4, '0')}-${transactionDate.month.toString().padLeft(2, '0')}-${transactionDate.day.toString().padLeft(2, '0')}',
         if (name != null) 'name': name,

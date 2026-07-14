@@ -16,6 +16,7 @@ import '../../../spaces/domain/space_model.dart';
 import '../../../spaces/presentation/providers/space_budget_provider.dart';
 import '../../../spaces/presentation/providers/space_provider.dart';
 import '../../../spaces/presentation/providers/space_transaction_provider.dart';
+import '../../../vouchers/presentation/providers/voucher_provider.dart';
 import '../../domain/transaction_models.dart';
 import '../providers/transaction_provider.dart';
 
@@ -57,6 +58,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   final _nameFocus = FocusNode();
   final _memoFocus = FocusNode();
   bool _loading = false;
+  int? _voucherId; // 지출을 상품권으로 결제할 때. null이면 현금.
 
   bool get _isEditMode => widget.initialItem != null;
 
@@ -186,15 +188,19 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             memo: memo,
           );
         } else {
+          final useVoucher =
+              _type == TransactionType.expense && _voucherId != null;
           await repo.create(
             amount: finalAmount,
             type: _type,
             categoryId: effectiveCategory.id,
-            paymentMethod: 'cash',
+            paymentMethod: useVoucher ? 'voucher' : 'cash',
+            voucherId: useVoucher ? _voucherId : null,
             transactionDate: _date,
             name: name,
             memo: memo,
           );
+          if (useVoucher) ref.invalidate(vouchersProvider);
         }
         ref.invalidate(currentCycleTransactionsProvider);
         ref.invalidate(availableBudgetProvider);
@@ -276,6 +282,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               onChanged: (v) => setState(() {
                 _type = v;
                 if (!_isEditMode) _category = null;
+                // 상품권 결제는 지출에만 해당 — 다른 타입 선택 시 초기화
+                if (v != TransactionType.expense) _voucherId = null;
               }),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -310,6 +318,12 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               filterCategories: isSpaceMode ? _noFilter : _filterCategories,
             ),
             const SizedBox(height: AppSpacing.md),
+
+            if (!isSpaceMode && !_isEditMode && _type == TransactionType.expense)
+              _VoucherPaymentSelector(
+                selectedId: _voucherId,
+                onSelected: (id) => setState(() => _voucherId = id),
+              ),
 
             _DateField(
               date: _date,
@@ -685,6 +699,105 @@ class _AccentButton extends StatelessWidget {
   }
 }
 
+
+// ── 상품권 결제 선택기 (지출 전용) ──────────────────────────────────
+
+class _VoucherPaymentSelector extends ConsumerWidget {
+  const _VoucherPaymentSelector({
+    required this.selectedId,
+    required this.onSelected,
+  });
+
+  final int? selectedId; // null = 현금
+  final ValueChanged<int?> onSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tt = Theme.of(context).textTheme;
+    final vouchersAsync = ref.watch(activeVouchersProvider);
+
+    return vouchersAsync.maybeWhen(
+      data: (vouchers) {
+        if (vouchers.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('결제 수단',
+                  style: tt.labelMedium
+                      ?.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  _PayChip(
+                    label: '현금',
+                    selected: selectedId == null,
+                    onTap: () => onSelected(null),
+                  ),
+                  ...vouchers.map((v) => _PayChip(
+                        label: '${v.name} · ${_fmtWon(v.balance)}',
+                        selected: selectedId == v.id,
+                        onTap: () => onSelected(v.id),
+                      )),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  static String _fmtWon(double v) =>
+      '${v.round().toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
+}
+
+class _PayChip extends StatelessWidget {
+  const _PayChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    const accent = Color(0xFFB39DFF);
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: selected
+              ? accent.withValues(alpha: 0.14)
+              : AppColors.surfaceGlass,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? accent : AppColors.divider,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: tt.bodySmall?.copyWith(
+            color: selected ? accent : AppColors.textPrimary,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 // ── 접이식 카테고리 선택기 ──────────────────────────────────────────
 

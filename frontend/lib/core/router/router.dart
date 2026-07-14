@@ -16,6 +16,7 @@ import '../../features/settings/presentation/screens/notification_settings_scree
 import '../../features/settings/presentation/screens/app_info_screen.dart';
 import '../../features/shell/main_shell.dart';
 import '../../features/spaces/presentation/screens/space_list_screen.dart';
+import '../../features/vouchers/presentation/screens/voucher_screen.dart';
 import '../../features/spaces/presentation/screens/invite_preview_screen.dart';
 import '../deeplink/deep_link_provider.dart';
 import '../widget/home_widget_sync_provider.dart';
@@ -100,6 +101,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               routes: [
                 GoRoute(path: 'fixed-income', pageBuilder: (_, s) => _settingsPage(const FixedIncomeScreen(), s.pageKey)),
                 GoRoute(path: 'fixed-expense', pageBuilder: (_, s) => _settingsPage(const FixedExpenseScreen(), s.pageKey)),
+                GoRoute(path: 'vouchers', pageBuilder: (_, s) => _settingsPage(const VoucherScreen(), s.pageKey)),
                 GoRoute(path: 'notifications', pageBuilder: (_, s) => _settingsPage(const NotificationSettingsScreen(), s.pageKey)),
                 GoRoute(path: 'app-info', pageBuilder: (_, s) => _settingsPage(const AppInfoScreen(), s.pageKey)),
                 GoRoute(path: 'spaces', pageBuilder: (_, s) => _settingsPage(const SpaceListScreen(), s.pageKey)),
