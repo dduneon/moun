@@ -38,9 +38,14 @@ class GlassCard extends StatelessWidget {
             ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x14000000), // black 8%
-                blurRadius: 24,
+                color: AppColors.cardShadowSoft, // 넓고 부드러운 쿨 섀도
+                blurRadius: 22,
                 offset: Offset(0, 8),
+              ),
+              BoxShadow(
+                color: AppColors.cardShadowTight, // 접지 그림자
+                blurRadius: 3,
+                offset: Offset(0, 1),
               ),
             ],
           ),

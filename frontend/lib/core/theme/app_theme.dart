@@ -7,8 +7,8 @@ abstract final class AppTheme {
         useMaterial3: true,
         colorScheme: AppColors.lightScheme,
         textTheme: AppTypography.textTheme,
-        scaffoldBackgroundColor: AppColors.backgroundStart,
-        canvasColor: AppColors.backgroundStart,
+        scaffoldBackgroundColor: AppColors.backgroundEnd,
+        canvasColor: AppColors.backgroundEnd,
         dividerTheme: const DividerThemeData(
           color: AppColors.divider,
           space: 1,

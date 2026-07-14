@@ -5,13 +5,18 @@ abstract final class AppColors {
   static const primary = Color(0xFF5B8DEF);
   static const primaryGradientEnd = Color(0xFF7C6FF0);
 
-  // Background
-  static const backgroundStart = Color(0xFFF7F8FC);
-  static const backgroundEnd = Color(0xFFFFFFFF);
+  // Background — 은은한 브랜드 틴트 + 밝은 톤 (기존 밋밋한 쿨그레이 대비 화사함)
+  static const backgroundStart = Color(0xFFE9EEFC); // 상단 앰비언트 틴트
+  static const backgroundMid = Color(0xFFF3F6FE);
+  static const backgroundEnd = Color(0xFFFDFDFF);   // 하단 거의 화이트
 
-  // Surface
-  static const surfaceGlass = Color(0xB3FFFFFF); // white 70%
-  static const surfaceGlassBorder = Color(0x4DFFFFFF); // white 30%
+  // Surface — 밝은 글래스 (기존 흰색 70%는 회색 배경이 비쳐 칙칙했음)
+  static const surfaceGlass = Color(0xF2FFFFFF); // white 95%
+  static const surfaceGlassBorder = Color(0x148A96C0); // 쿨 헤어라인 8%
+
+  // Card shadow — 차갑고 부드러운 그림자로 깊이감 부여
+  static const cardShadowSoft = Color(0x14465A96); // cool blue 8%
+  static const cardShadowTight = Color(0x0D1E2846); // 5%
 
   // Semantic
   static const income = Color(0xFF34C77B);
