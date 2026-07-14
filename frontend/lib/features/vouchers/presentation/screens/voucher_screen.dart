@@ -7,15 +7,12 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/constants/category_type_names.dart';
 import '../../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../../shared/widgets/app_text_field.dart';
-import '../../../../shared/widgets/category_selector.dart';
 import '../../../../shared/widgets/glass_card.dart';
 import '../../../../shared/widgets/gradient_background.dart';
 import '../../../../shared/widgets/selection_chip.dart';
 import '../../../budget/presentation/providers/budget_provider.dart';
-import '../../../categories/presentation/providers/category_provider.dart';
 import '../../../transactions/presentation/providers/transaction_provider.dart';
 import '../../domain/voucher_model.dart';
 import '../providers/voucher_provider.dart';
@@ -57,12 +54,11 @@ class VoucherScreen extends ConsumerWidget {
             context,
             title: '${v.name} 충전',
             child: _ChargeForm(
-              onSave: (paid, face, categoryId, method) async {
+              onSave: (paid, face, method) async {
                 await ref.read(voucherRepositoryProvider).charge(
                       v.id,
                       paidAmount: paid,
                       faceAmount: face,
-                      categoryId: categoryId,
                       transactionDate: DateTime.now(),
                       paymentMethod: method,
                     );
@@ -509,22 +505,20 @@ class _NameFormState extends State<_NameForm> {
 
 // ── 충전 폼 ───────────────────────────────────────────────────
 
-class _ChargeForm extends ConsumerStatefulWidget {
+class _ChargeForm extends StatefulWidget {
   const _ChargeForm({required this.onSave});
-  final Future<void> Function(int paid, int? face, int categoryId, String method)
-      onSave;
+  final Future<void> Function(int paid, int? face, String method) onSave;
 
   @override
-  ConsumerState<_ChargeForm> createState() => _ChargeFormState();
+  State<_ChargeForm> createState() => _ChargeFormState();
 }
 
-class _ChargeFormState extends ConsumerState<_ChargeForm> {
+class _ChargeFormState extends State<_ChargeForm> {
   final _paidCtrl = TextEditingController();
   final _faceCtrl = TextEditingController();
   int _paid = 0;
   int _face = 0;
   String _method = 'account';
-  CategoryItem? _category;
   bool _loading = false;
 
   @override
@@ -534,25 +528,15 @@ class _ChargeFormState extends ConsumerState<_ChargeForm> {
     super.dispose();
   }
 
-  List<CategoryItem> _savingCategories(List<CategoryItem> all) {
-    final saving =
-        all.where((c) => savingCategoryNames.contains(c.label)).toList();
-    return saving.isNotEmpty ? saving : all;
-  }
-
   Future<void> _save() async {
     if (_paid <= 0) {
       _err('지불 금액을 입력해 주세요.');
       return;
     }
-    if (_category == null) {
-      _err('분류를 선택해 주세요.');
-      return;
-    }
     final face = _face > 0 ? _face : null; // 미입력 시 백엔드가 paid와 동일 처리
     setState(() => _loading = true);
     try {
-      await widget.onSave(_paid, face, _category!.id, _method);
+      await widget.onSave(_paid, face, _method);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
@@ -568,7 +552,6 @@ class _ChargeFormState extends ConsumerState<_ChargeForm> {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-    final categoriesAsync = ref.watch(categoryItemsProvider);
     final discount = _face > 0 && _paid > 0 && _face > _paid ? _face - _paid : 0;
 
     return Column(
@@ -596,34 +579,13 @@ class _ChargeFormState extends ConsumerState<_ChargeForm> {
         const SizedBox(height: AppSpacing.lg),
 
         Text('결제 수단',
-            style:
-                tt.labelMedium?.copyWith(color: AppColors.textSecondary)),
+            style: tt.labelMedium?.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: AppSpacing.sm),
         SelectionChipGroup<String>(
           items: const ['account', 'cash'],
           labelOf: (m) => m == 'account' ? '계좌' : '현금',
           selected: {_method},
           onSelected: (s) => setState(() => _method = s.first),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-
-        Text('분류',
-            style:
-                tt.labelMedium?.copyWith(color: AppColors.textSecondary)),
-        const SizedBox(height: AppSpacing.sm),
-        categoriesAsync.when(
-          data: (all) {
-            final items = _savingCategories(all);
-            return SelectionChipGroup<CategoryItem>(
-              items: items,
-              labelOf: (c) => c.label,
-              selected: _category != null ? {_category!} : {},
-              onSelected: (s) => setState(() => _category = s.first),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Text('분류를 불러오지 못했어요',
-              style: tt.bodySmall?.copyWith(color: AppColors.textSecondary)),
         ),
         const SizedBox(height: AppSpacing.xl),
 

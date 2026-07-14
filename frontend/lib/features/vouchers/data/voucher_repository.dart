@@ -44,7 +44,6 @@ class VoucherRepository {
     int id, {
     required int paidAmount,
     int? faceAmount,
-    required int categoryId,
     required DateTime transactionDate,
     String paymentMethod = 'account',
     String? name,
@@ -55,7 +54,6 @@ class VoucherRepository {
       data: {
         'paid_amount': paidAmount,
         if (faceAmount != null) 'face_amount': faceAmount,
-        'category_id': categoryId,
         'transaction_date': _dateStr(transactionDate),
         'payment_method': paymentMethod,
         if (name != null) 'name': name,

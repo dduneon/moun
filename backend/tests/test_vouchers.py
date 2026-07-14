@@ -104,15 +104,19 @@ def test_voucher_charge_and_use_flow(client):
     v = client.post("/vouchers", json={"name": "온누리상품권"}, headers=h).json()
     assert v["balance"] == "0.00" or Decimal(v["balance"]) == 0
 
-    # 충전: 90,000 지불 → 100,000 충전
+    # 충전: 90,000 지불 → 100,000 충전 (분류 미지정 → 시스템 카테고리 자동 지정)
     r = client.post(
         f"/vouchers/{v['id']}/charge",
-        json={"paid_amount": 90000, "face_amount": 100000, "category_id": cat_id,
+        json={"paid_amount": 90000, "face_amount": 100000,
               "transaction_date": "2026-06-05"},
         headers=h,
     )
     assert r.status_code == 201
     assert Decimal(r.json()["balance"]) == Decimal(100000)
+
+    # 충전 거래는 "상품권 충전" 카테고리로 자동 분류됨
+    cats = {c["name"] for c in client.get("/categories", headers=h).json()}
+    assert "상품권 충전" in cats
 
     # 사용: 상품권으로 식비 30,000
     r = client.post(
@@ -146,7 +150,7 @@ def test_deleting_usage_restores_balance(client):
     cat_id = client.post("/categories", json={"name": "식비"}, headers=h).json()["id"]
     v = client.post("/vouchers", json={"name": "지역화폐"}, headers=h).json()
     client.post(f"/vouchers/{v['id']}/charge",
-                json={"paid_amount": 50000, "category_id": cat_id, "transaction_date": "2026-06-05"},
+                json={"paid_amount": 50000, "transaction_date": "2026-06-05"},
                 headers=h)
     use = client.post("/transactions",
                       json={"amount": -20000, "category_id": cat_id, "payment_method": "voucher",

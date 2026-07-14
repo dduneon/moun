@@ -4,4 +4,4 @@
 const incomeCategoryNames = {'급여', '부업', '투자', '기타수입'};
 const savingCategoryNames = {'저축', '적금', '예금', '주식'};
 // 자동 생성되는 시스템 카테고리 — 카테고리 피커에서 항상 제외
-const systemCategoryNames = {'고정지출', '수입', '고정저축'};
+const systemCategoryNames = {'고정지출', '수입', '고정저축', '상품권 충전'};

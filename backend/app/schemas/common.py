@@ -149,7 +149,7 @@ class VoucherChargeRequest(BaseModel):
     (예: 온누리 10% → paid 90,000 / face 100,000)."""
     paid_amount: Decimal            # 실제 계좌/카드에서 나간 금액 (양수)
     face_amount: Optional[Decimal] = None  # 충전된 액면가 (미지정 시 paid_amount와 동일 = 할인 없음)
-    category_id: int
+    category_id: Optional[int] = None  # 미지정 시 "상품권 충전" 시스템 카테고리 자동 지정
     transaction_date: date
     payment_method: PaymentMethod = PaymentMethod.account  # voucher 자기 자신은 불가
     card_id: Optional[int] = None

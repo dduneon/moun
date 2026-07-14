@@ -5,10 +5,14 @@ from sqlalchemy import func, select
 
 from app.core.billing import calculate_billing_date
 from app.core.deps import DbDep, UserDep
+from app.core.schedule_generator import _get_or_create_system_category
 from app.models.card import Card
 from app.models.fixed_expense import PaymentMethod
 from app.models.transaction import Transaction, TransactionType
 from app.models.voucher import Voucher
+
+# 충전 거래에 자동 지정되는 시스템 카테고리 (사용자가 직접 고르지 않음)
+SYSTEM_VOUCHER_CATEGORY = "상품권 충전"
 from app.schemas.common import (
     VoucherChargeRequest,
     VoucherCreate,
@@ -108,12 +112,18 @@ def charge_voucher(voucher_id: int, body: VoucherChargeRequest, db: DbDep, user:
 
     billing_date = calculate_billing_date(body.transaction_date, body.payment_method, card)
 
+    # 분류는 사용자가 고르지 않고 "상품권 충전" 시스템 카테고리로 자동 지정.
+    # (요청에 category_id가 오면 그대로 존중 — 향후 확장 여지)
+    category_id = body.category_id or _get_or_create_system_category(
+        db, user.id, SYSTEM_VOUCHER_CATEGORY
+    )
+
     txn = Transaction(
         user_id=user.id,
         name=body.name or f"{voucher.name} 충전",
         amount=-body.paid_amount,          # 실제 계좌에서 나간 금액 (음수 = 예산 차감)
         type=TransactionType.saving,       # 소비 통계 제외, 가용 예산에서는 차감
-        category_id=body.category_id,
+        category_id=category_id,
         payment_method=body.payment_method,
         card_id=body.card_id,
         voucher_id=voucher.id,
